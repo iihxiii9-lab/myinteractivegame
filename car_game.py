@@ -111,19 +111,20 @@ GAME_HTML = r"""
     <div style="text-align:center;">
       <div id="p1label" style="color:#7CFC9A; font-weight:bold; margin-bottom:4px;">Player 1</div>
       <canvas id="canvas1" width="340" height="600"
-              style="background:#3c3c3c; border:3px solid #7CFC9A; border-radius:8px;"></canvas>
+              style="background:#3c3c3c; border:3px solid #7CFC9A; border-radius:8px; max-width:92vw; height:auto; touch-action:none;"></canvas>
     </div>
     <div style="text-align:center;">
       <div id="p2label" style="color:#FFB347; font-weight:bold; margin-bottom:4px;">Player 2</div>
       <canvas id="canvas2" width="340" height="600"
-              style="background:#3c3c3c; border:3px solid #FFB347; border-radius:8px;"></canvas>
+              style="background:#3c3c3c; border:3px solid #FFB347; border-radius:8px; max-width:92vw; height:auto; touch-action:none;"></canvas>
     </div>
   </div>
 
   <p style="text-align:center; color:#aaa; font-size:13px; margin-top:10px;">
     Player 1: A / D to steer, W / S for gas / brake &nbsp;&nbsp;|&nbsp;&nbsp;
     Player 2: ◀ / ▶ to steer, ▲ / ▼ for gas / brake &nbsp;&nbsp;|&nbsp;&nbsp;
-    Space: pause &nbsp;&nbsp;|&nbsp;&nbsp; Enter: restart after race ends
+    Space: pause &nbsp;&nbsp;|&nbsp;&nbsp; Enter: restart after race ends<br>
+    📱 On a phone: swipe left / right on your car's track to steer, swipe up / down to speed up / slow down.
   </p>
 
   <div id="leaderboardBox" style="max-width:520px; margin:20px auto 0 auto; background:#2a2a2a; border-radius:10px; padding:14px 18px;">
@@ -646,6 +647,56 @@ window.addEventListener("keyup", (e) => {
   if (isTypingInField(e)) return;
   keysDown[e.key] = false;
 });
+
+// ---------------------------------------------------------------------
+// Touch / swipe controls (for players joining from a phone)
+// ---------------------------------------------------------------------
+function addSwipeControls(canvas, getPlayer) {
+  const SWIPE_THRESHOLD = 28; // minimum px movement to count as a swipe
+
+  let startX = null;
+  let startY = null;
+
+  canvas.addEventListener("touchstart", (e) => {
+    ensureAudio(); // a touch also counts as the "user gesture" needed to unlock audio
+    const t = e.changedTouches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener("touchend", (e) => {
+    if (startX === null) return;
+    const player = getPlayer();
+    if (player && !player.gameOver && !raceOver) {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (absDx > absDy && absDx > SWIPE_THRESHOLD) {
+        // horizontal swipe -> change lane (nudge a few steps so one swipe covers ~1 lane)
+        for (let i = 0; i < 5; i++) {
+          if (dx > 0) player.car.moveRight(); else player.car.moveLeft();
+        }
+      } else if (absDy > SWIPE_THRESHOLD) {
+        // vertical swipe -> speed up (swipe up) or slow down (swipe down)
+        if (dy < 0) player.baseSpeed = Math.min(player.baseSpeed + 1.2, 14);
+        else player.baseSpeed = Math.max(player.baseSpeed - 1.2, 3);
+      }
+    }
+    startX = null;
+    startY = null;
+    e.preventDefault();
+  }, { passive: false });
+
+  // also prevent the page from scrolling while dragging a finger across the canvas
+  canvas.addEventListener("touchmove", (e) => { e.preventDefault(); }, { passive: false });
+}
+
+addSwipeControls(document.getElementById("canvas1"), () => p1);
+addSwipeControls(document.getElementById("canvas2"), () => p2);
 
 document.getElementById("btnStart").addEventListener("click", startRace);
 document.getElementById("btnPause").addEventListener("click", () => {
