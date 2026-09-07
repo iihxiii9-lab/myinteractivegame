@@ -41,6 +41,11 @@ GAME_HTML = r"""
       <input id="p2name" type="text" placeholder="Player 2"
              style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:220px;">
     </div>
+    <div>
+      <label style="color:#eee; font-weight:bold;">Score to win</label><br>
+      <input id="winScoreInput" type="number" min="10" step="10" value="300"
+             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:100px;">
+    </div>
     <button id="btnStart" style="padding:9px 22px; font-size:16px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
       ▶ Start Race
     </button>
@@ -199,6 +204,26 @@ function playCrash() {
   thud.stop(audioCtx.currentTime + 0.32);
 }
 
+function playWin() {
+  if (!audioCtx || !soundOn) return;
+  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+  notes.forEach((freq, i) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "triangle";
+    o.frequency.value = freq;
+    g.gain.value = 0.0001;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    const startTime = audioCtx.currentTime + i * 0.14;
+    o.start(startTime);
+    g.gain.setValueAtTime(0.0001, startTime);
+    g.gain.exponentialRampToValueAtTime(0.12, startTime + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.35);
+    o.stop(startTime + 0.4);
+  });
+}
+
 function playHonk() {
   if (!audioCtx || !soundOn) return;
   const o = audioCtx.createOscillator();
@@ -304,7 +329,7 @@ class PlayerGame {
 
   update(keysDown, running, paused) {
     if (!running || paused) return;
-    if (this.gameOver) return;
+    if (this.gameOver || raceOver) return;
 
     if (keysDown[this.controls.left]) this.car.moveLeft();
     if (keysDown[this.controls.right]) this.car.moveRight();
@@ -365,10 +390,22 @@ class PlayerGame {
     ctx.fillStyle = COLORS.white;
     ctx.font = "bold 15px sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("Score: " + Math.floor(this.score), 8, 20);
+    ctx.fillText("Score: " + Math.floor(this.score) + " / " + winScore, 8, 20);
     ctx.fillText("Speed: " + this.baseSpeed.toFixed(1), 8, 40);
 
-    if (this.gameOver) {
+    if (raceOver) {
+      const won = this.name === winnerName;
+      ctx.fillStyle = won ? "rgba(30,90,30,0.75)" : "rgba(0,0,0,0.65)";
+      ctx.fillRect(0, 0, this.width, this.height);
+      ctx.fillStyle = COLORS.white;
+      ctx.textAlign = "center";
+      ctx.font = "bold 24px sans-serif";
+      ctx.fillText(won ? "🏆 YOU WIN! 🏆" : "You lose", this.width / 2, this.height / 2 - 20);
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillText(winnerName + " reached " + winScore + "!", this.width / 2, this.height / 2 + 6);
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText("Score: " + Math.floor(this.score), this.width / 2, this.height / 2 + 34);
+    } else if (this.gameOver) {
       ctx.fillStyle = "rgba(0,0,0,0.65)";
       ctx.fillRect(0, 0, this.width, this.height);
       ctx.fillStyle = COLORS.white;
@@ -450,6 +487,9 @@ let running = false;
 let paused = false;
 let keysDown = {};
 let scoresRecorded = false;
+let winScore = 300;
+let raceOver = false;
+let winnerName = null;
 
 function initPlayers() {
   const p1Name = document.getElementById("p1name").value.trim() || "Player 1";
@@ -459,10 +499,14 @@ function initPlayers() {
   document.getElementById("p1label").innerText = p1Name;
   document.getElementById("p2label").innerText = p2Name;
   scoresRecorded = false;
+  raceOver = false;
+  winnerName = null;
 }
 
 function startRace() {
   ensureAudio();
+  const inputVal = parseInt(document.getElementById("winScoreInput").value, 10);
+  winScore = (!isNaN(inputVal) && inputVal > 0) ? inputVal : 300;
   initPlayers();
   p1.engineSound.start();
   p2.engineSound.start();
@@ -470,9 +514,28 @@ function startRace() {
   paused = false;
 }
 
+function checkWinCondition() {
+  if (raceOver || !p1 || !p2) return;
+  const p1Wins = p1.score >= winScore && !p1.gameOver;
+  const p2Wins = p2.score >= winScore && !p2.gameOver;
+  if (p1Wins || p2Wins) {
+    // if both cross the line the same frame, higher score wins
+    winnerName = (p1Wins && p2Wins) ? (p1.score >= p2.score ? p1.name : p2.name)
+                 : (p1Wins ? p1.name : p2.name);
+    raceOver = true;
+    p1.engineSound.update(0, false);
+    p2.engineSound.update(0, false);
+    playWin();
+  }
+}
+
+function isRaceDecided() {
+  return raceOver || (p1 && p2 && p1.gameOver && p2.gameOver);
+}
+
 function maybeRecordScores() {
   if (!p1 || !p2) return;
-  if (p1.gameOver && p2.gameOver && !scoresRecorded) {
+  if (isRaceDecided() && !scoresRecorded) {
     addScore(p1.name, p1.score);
     addScore(p2.name, p2.score);
     scoresRecorded = true;
@@ -483,6 +546,7 @@ function loop() {
   if (running) {
     p1.update(keysDown, running, paused);
     p2.update(keysDown, running, paused);
+    if (!paused) checkWinCondition();
     maybeRecordScores();
   }
   if (p1) p1.draw();
@@ -517,7 +581,7 @@ window.addEventListener("keydown", (e) => {
 
   keysDown[e.key] = true;
   if (e.key === " ") { paused = !paused; e.preventDefault(); }
-  if (e.key === "Enter" && p1 && p2 && p1.gameOver && p2.gameOver) {
+  if (e.key === "Enter" && p1 && p2 && isRaceDecided()) {
     initPlayers();
     p1.engineSound.start();
     p2.engineSound.start();
@@ -554,9 +618,12 @@ loop();
 components.html(GAME_HTML, height=1150, scrolling=True)
 
 st.info(
-    "💡 Tip: click **Start Race** first (this also enables sound — browsers "
-    "require a click before audio can play). Scores for both players are "
-    "saved to the leaderboard automatically once both cars crash."
+    "💡 Tip: set **Score to win** before clicking **Start Race** (this also "
+    "enables sound — browsers require a click before audio can play). "
+    "First player to reach that score wins instantly; if both crash before "
+    "anyone reaches it, whoever had the higher score is recorded as the "
+    "winner. Scores for both players are saved to the leaderboard "
+    "automatically once the race ends."
 )
 
 with st.expander("About the leaderboard"):
