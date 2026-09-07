@@ -1,258 +1,261 @@
 """
-Car Dodge Game
-==============
-A simple arcade-style car game built with Pygame.
+Car Dodge Game - Streamlit Cloud compatible version
+=====================================================
+This version does NOT use pygame (pygame needs a real display/window and
+cannot run on Streamlit Cloud's headless servers). Instead, the game is
+built with HTML5 Canvas + JavaScript and embedded directly into the
+Streamlit app using components.html. It runs entirely in the visitor's
+browser, so it works great on Streamlit Community Cloud.
 
-Controls:
-  - LEFT / RIGHT arrow keys (or A / D): move your car
-  - UP / DOWN arrow keys (or W / S): speed up / slow down
-  - P: pause / unpause
-  - R: restart after game over
-  - ESC: quit
-
-Goal:
-  Dodge the oncoming traffic for as long as you can. Your score increases
-  over time and the game gets progressively harder (traffic speeds up and
-  spawns more often).
-
-Requirements:
-  pip install pygame
-
-Run:
-  python car_game.py
+Run locally:
+    pip install streamlit
+    streamlit run car_game.py
 """
 
-import pygame
-import random
-import sys
+import streamlit as st
+import streamlit.components.v1 as components
 
-# ---------------------------------------------------------------------------
-# Setup
-# ---------------------------------------------------------------------------
-pygame.init()
+st.set_page_config(page_title="Car Dodge Game", page_icon="🚗", layout="centered")
 
-WIDTH, HEIGHT = 480, 700
-ROAD_WIDTH = 360
-ROAD_X = (WIDTH - ROAD_WIDTH) // 2
-LANE_COUNT = 3
-LANE_WIDTH = ROAD_WIDTH // LANE_COUNT
+st.title("🚗 Car Dodge Game")
+st.caption("Dodge the oncoming traffic and survive as long as you can!")
 
-FPS = 60
+GAME_HTML = r"""
+<div style="display:flex; justify-content:center;">
+  <canvas id="gameCanvas" width="480" height="700"
+          style="background:#3c3c3c; border:2px solid #fff; border-radius:8px; outline:none;"
+          tabindex="0"></canvas>
+</div>
+<div style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
+  <button id="btnLeft" style="padding:10px 20px; font-size:18px;">⬅️ Left</button>
+  <button id="btnPause" style="padding:10px 20px; font-size:18px;">⏸ Pause</button>
+  <button id="btnRestart" style="padding:10px 20px; font-size:18px;">🔄 Restart</button>
+  <button id="btnRight" style="padding:10px 20px; font-size:18px;">Right ➡️</button>
+</div>
+<p style="text-align:center; color:#ccc; font-family:sans-serif; font-size:14px;">
+  Controls: Arrow keys / A / D to move, P to pause, R to restart.<br>
+  On mobile, use the on-screen buttons.
+</p>
 
-WHITE = (245, 245, 245)
-BLACK = (20, 20, 20)
-GRAY = (60, 60, 60)
-LIGHT_GRAY = (110, 110, 110)
-YELLOW = (240, 200, 40)
-RED = (220, 60, 60)
-BLUE = (60, 130, 220)
-GREEN = (60, 200, 100)
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Car Dodge")
-clock = pygame.time.Clock()
+const WIDTH = canvas.width;
+const HEIGHT = canvas.height;
+const ROAD_WIDTH = 360;
+const ROAD_X = (WIDTH - ROAD_WIDTH) / 2;
+const LANE_COUNT = 3;
+const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
 
-font_big = pygame.font.SysFont("arial", 48, bold=True)
-font_med = pygame.font.SysFont("arial", 28, bold=True)
-font_small = pygame.font.SysFont("arial", 20)
+const COLORS = {
+  white: "#f5f5f5",
+  black: "#141414",
+  gray: "#3c3c3c",
+  lightGray: "#6e6e6e",
+  yellow: "#f0c828",
+  blue: "#3c82dc"
+};
+const OBSTACLE_COLORS = ["#dc3c3c", "#3cc864", "#f0c828", "#c864dc"];
 
+class Car {
+  constructor() {
+    this.width = 46;
+    this.height = 80;
+    this.lane = Math.floor(LANE_COUNT / 2);
+    this.x = this.laneX(this.lane);
+    this.y = HEIGHT - this.height - 30;
+    this.speedX = 6;
+  }
+  laneX(lane) {
+    const center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH / 2;
+    return center - this.width / 2;
+  }
+  moveLeft() { this.x = Math.max(ROAD_X + 4, this.x - this.speedX); }
+  moveRight() { this.x = Math.min(ROAD_X + ROAD_WIDTH - this.width - 4, this.x + this.speedX); }
+  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
+  draw() {
+    const r = this.rect();
+    drawCarBody(r, COLORS.blue);
+  }
+}
 
-# ---------------------------------------------------------------------------
-# Helper classes
-# ---------------------------------------------------------------------------
-class Car:
-    """The player's car."""
+class Obstacle {
+  constructor(speed) {
+    this.width = 46;
+    this.height = 80;
+    const lane = Math.floor(Math.random() * LANE_COUNT);
+    const center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH / 2;
+    this.x = center - this.width / 2;
+    this.y = -this.height;
+    this.speed = speed;
+    this.color = OBSTACLE_COLORS[Math.floor(Math.random() * OBSTACLE_COLORS.length)];
+  }
+  update() { this.y += this.speed; }
+  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
+  offScreen() { return this.y > HEIGHT; }
+  draw() { drawCarBody(this.rect(), this.color); }
+}
 
-    def __init__(self):
-        self.width = 46
-        self.height = 80
-        self.lane = LANE_COUNT // 2
-        self.x = self.lane_x(self.lane)
-        self.y = HEIGHT - self.height - 30
-        self.speed_x = 8  # horizontal move speed
+function drawCarBody(r, color) {
+  ctx.fillStyle = color;
+  roundRect(r.x, r.y, r.w, r.h, 10);
+  ctx.fill();
+  ctx.fillStyle = COLORS.white;
+  roundRect(r.x + 6, r.y + 10, r.w - 12, 18, 4); ctx.fill();
+  roundRect(r.x + 6, r.y + r.h - 28, r.w - 12, 18, 4); ctx.fill();
+  ctx.fillStyle = COLORS.black;
+  ctx.fillRect(r.x - 4, r.y + 8, 6, 18);
+  ctx.fillRect(r.x + r.w - 2, r.y + 8, 6, 18);
+  ctx.fillRect(r.x - 4, r.y + r.h - 26, 6, 18);
+  ctx.fillRect(r.x + r.w - 2, r.y + r.h - 26, 6, 18);
+}
 
-    def lane_x(self, lane):
-        center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH // 2
-        return center - self.width // 2
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
 
-    def move(self, keys):
-        target_x = self.lane_x(self.lane)
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.x -= self.speed_x
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.x += self.speed_x
-        # keep on road
-        self.x = max(ROAD_X + 4, min(self.x, ROAD_X + ROAD_WIDTH - self.width - 4))
+function rectsCollide(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
 
-    def rect(self):
-        return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
+let game;
 
-    def draw(self, surface):
-        r = self.rect()
-        pygame.draw.rect(surface, BLUE, r, border_radius=10)
-        # windows
-        pygame.draw.rect(surface, WHITE, (r.x + 6, r.y + 10, r.width - 12, 18), border_radius=4)
-        pygame.draw.rect(surface, WHITE, (r.x + 6, r.y + r.height - 28, r.width - 12, 18), border_radius=4)
-        # wheels
-        pygame.draw.rect(surface, BLACK, (r.x - 4, r.y + 8, 6, 18), border_radius=2)
-        pygame.draw.rect(surface, BLACK, (r.x + r.width - 2, r.y + 8, 6, 18), border_radius=2)
-        pygame.draw.rect(surface, BLACK, (r.x - 4, r.y + r.height - 26, 6, 18), border_radius=2)
-        pygame.draw.rect(surface, BLACK, (r.x + r.width - 2, r.y + r.height - 26, 6, 18), border_radius=2)
+function newGame() {
+  return {
+    car: new Car(),
+    obstacles: [],
+    score: 0,
+    baseSpeed: 5,
+    spawnTimer: 0,
+    spawnInterval: 55,
+    gameOver: false,
+    paused: false,
+    roadScroll: 0,
+    keys: {}
+  };
+}
 
+function spawnObstacle() {
+  const speed = game.baseSpeed + Math.random() * 2;
+  game.obstacles.push(new Obstacle(speed));
+}
 
-class Obstacle:
-    """An oncoming enemy car."""
+function update() {
+  if (game.gameOver || game.paused) return;
 
-    def __init__(self, speed):
-        self.width = 46
-        self.height = 80
-        lane = random.randint(0, LANE_COUNT - 1)
-        center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH // 2
-        self.x = center - self.width // 2
-        self.y = -self.height
-        self.speed = speed
-        self.color = random.choice([RED, GREEN, YELLOW, (200, 100, 220)])
+  if (game.keys["ArrowLeft"] || game.keys["a"]) game.car.moveLeft();
+  if (game.keys["ArrowRight"] || game.keys["d"]) game.car.moveRight();
+  if (game.keys["ArrowUp"] || game.keys["w"]) game.baseSpeed = Math.min(game.baseSpeed + 0.04, 14);
+  if (game.keys["ArrowDown"] || game.keys["s"]) game.baseSpeed = Math.max(game.baseSpeed - 0.04, 3);
 
-    def update(self):
-        self.y += self.speed
+  game.spawnTimer++;
+  if (game.spawnTimer >= game.spawnInterval) {
+    game.spawnTimer = 0;
+    spawnObstacle();
+    game.spawnInterval = Math.max(20, game.spawnInterval - 0.5);
+  }
 
-    def rect(self):
-        return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
+  game.obstacles.forEach(o => o.update());
+  game.obstacles = game.obstacles.filter(o => !o.offScreen());
 
-    def off_screen(self):
-        return self.y > HEIGHT
+  const carRect = game.car.rect();
+  for (const o of game.obstacles) {
+    if (rectsCollide(carRect, o.rect())) {
+      game.gameOver = true;
+    }
+  }
 
-    def draw(self, surface):
-        r = self.rect()
-        pygame.draw.rect(surface, self.color, r, border_radius=10)
-        pygame.draw.rect(surface, WHITE, (r.x + 6, r.y + 10, r.width - 12, 18), border_radius=4)
-        pygame.draw.rect(surface, WHITE, (r.x + 6, r.y + r.height - 28, r.width - 12, 18), border_radius=4)
+  game.score += game.baseSpeed * 0.05;
+  game.roadScroll = (game.roadScroll + game.baseSpeed) % 40;
+}
 
+function drawRoad() {
+  ctx.fillStyle = COLORS.gray;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = COLORS.lightGray;
+  ctx.fillRect(ROAD_X, 0, ROAD_WIDTH, HEIGHT);
 
-# ---------------------------------------------------------------------------
-# Game state
-# ---------------------------------------------------------------------------
-class Game:
-    def __init__(self):
-        self.reset()
+  ctx.fillStyle = COLORS.yellow;
+  for (let lane = 1; lane < LANE_COUNT; lane++) {
+    const x = ROAD_X + lane * LANE_WIDTH;
+    let y = -40 + game.roadScroll;
+    while (y < HEIGHT) {
+      ctx.fillRect(x - 3, y, 6, 24);
+      y += 40;
+    }
+  }
+  ctx.fillStyle = COLORS.white;
+  ctx.fillRect(ROAD_X - 6, 0, 6, HEIGHT);
+  ctx.fillRect(ROAD_X + ROAD_WIDTH, 0, 6, HEIGHT);
+}
 
-    def reset(self):
-        self.car = Car()
-        self.obstacles = []
-        self.score = 0.0
-        self.base_speed = 6
-        self.spawn_timer = 0
-        self.spawn_interval = 55  # frames between spawns, decreases over time
-        self.game_over = False
-        self.paused = False
-        self.road_scroll = 0
+function drawHUD() {
+  ctx.fillStyle = COLORS.white;
+  ctx.font = "bold 16px sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Score: " + Math.floor(game.score), 10, 24);
+  ctx.fillText("Speed: " + game.baseSpeed.toFixed(1), 10, 46);
 
-    def spawn_obstacle(self):
-        speed = self.base_speed + random.uniform(0, 2)
-        self.obstacles.append(Obstacle(speed))
+  if (game.paused) centerMessage("PAUSED", "Press P or tap Pause to resume");
+  if (game.gameOver) centerMessage("GAME OVER", "Press R or tap Restart");
+}
 
-    def update(self):
-        if self.game_over or self.paused:
-            return
+function centerMessage(title, subtitle) {
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = COLORS.white;
+  ctx.textAlign = "center";
+  ctx.font = "bold 42px sans-serif";
+  ctx.fillText(title, WIDTH / 2, HEIGHT / 2 - 10);
+  ctx.font = "bold 20px sans-serif";
+  ctx.fillText(subtitle, WIDTH / 2, HEIGHT / 2 + 30);
+}
 
-        keys = pygame.key.get_pressed()
-        self.car.move(keys)
+function draw() {
+  drawRoad();
+  game.car.draw();
+  game.obstacles.forEach(o => o.draw());
+  drawHUD();
+}
 
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.base_speed = min(self.base_speed + 0.05, 16)
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.base_speed = max(self.base_speed - 0.05, 3)
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
 
-        self.spawn_timer += 1
-        if self.spawn_timer >= self.spawn_interval:
-            self.spawn_timer = 0
-            self.spawn_obstacle()
-            # difficulty ramps up
-            self.spawn_interval = max(20, self.spawn_interval - 0.5)
+// input handling
+window.addEventListener("keydown", (e) => {
+  game.keys[e.key] = true;
+  if (e.key === "p" || e.key === "P") game.paused = !game.paused;
+  if ((e.key === "r" || e.key === "R") && game.gameOver) game = newGame();
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault();
+});
+window.addEventListener("keyup", (e) => { game.keys[e.key] = false; });
 
-        for obs in self.obstacles:
-            obs.update()
-        self.obstacles = [o for o in self.obstacles if not o.off_screen()]
+document.getElementById("btnLeft").addEventListener("click", () => game.car.moveLeft());
+document.getElementById("btnRight").addEventListener("click", () => game.car.moveRight());
+document.getElementById("btnPause").addEventListener("click", () => { if (!game.gameOver) game.paused = !game.paused; });
+document.getElementById("btnRestart").addEventListener("click", () => { game = newGame(); });
 
-        # collision check
-        car_rect = self.car.rect()
-        for obs in self.obstacles:
-            if car_rect.colliderect(obs.rect()):
-                self.game_over = True
+canvas.addEventListener("click", () => canvas.focus());
 
-        self.score += self.base_speed * 0.05
-        self.road_scroll = (self.road_scroll + self.base_speed) % 40
+game = newGame();
+canvas.focus();
+loop();
+</script>
+"""
 
-    def draw_road(self, surface):
-        surface.fill(GRAY)
-        pygame.draw.rect(surface, LIGHT_GRAY, (ROAD_X, 0, ROAD_WIDTH, HEIGHT))
-        # lane dividers
-        for lane in range(1, LANE_COUNT):
-            x = ROAD_X + lane * LANE_WIDTH
-            y = -40 + self.road_scroll
-            while y < HEIGHT:
-                pygame.draw.rect(surface, YELLOW, (x - 3, y, 6, 24))
-                y += 40
-        # road edges
-        pygame.draw.rect(surface, WHITE, (ROAD_X - 6, 0, 6, HEIGHT))
-        pygame.draw.rect(surface, WHITE, (ROAD_X + ROAD_WIDTH, 0, 6, HEIGHT))
+components.html(GAME_HTML, height=850, scrolling=False)
 
-    def draw_hud(self, surface):
-        score_text = font_small.render(f"Score: {int(self.score)}", True, WHITE)
-        speed_text = font_small.render(f"Speed: {self.base_speed:.1f}", True, WHITE)
-        surface.blit(score_text, (10, 10))
-        surface.blit(speed_text, (10, 34))
-
-        if self.paused:
-            self._center_message(surface, "PAUSED", "Press P to resume")
-        if self.game_over:
-            self._center_message(surface, "GAME OVER", "Press R to restart")
-
-    def _center_message(self, surface, title, subtitle):
-        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
-        surface.blit(overlay, (0, 0))
-
-        title_surf = font_big.render(title, True, WHITE)
-        sub_surf = font_med.render(subtitle, True, WHITE)
-        surface.blit(title_surf, title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20)))
-        surface.blit(sub_surf, sub_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30)))
-
-    def draw(self, surface):
-        self.draw_road(surface)
-        self.car.draw(surface)
-        for obs in self.obstacles:
-            obs.draw(surface)
-        self.draw_hud(surface)
-
-
-# ---------------------------------------------------------------------------
-# Main loop
-# ---------------------------------------------------------------------------
-def main():
-    game = Game()
-    running = True
-
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    running = False
-                elif event.key == pygame.K_p and not game.game_over:
-                    game.paused = not game.paused
-                elif event.key == pygame.K_r and game.game_over:
-                    game.reset()
-
-        game.update()
-        game.draw(screen)
-        pygame.display.flip()
-        clock.tick(FPS)
-
-    pygame.quit()
-    sys.exit()
-
-
-if __name__ == "__main__":
-    main()
+st.info(
+    "Tip: click on the game canvas first so it captures your keyboard input, "
+    "then use the arrow keys (or the on-screen buttons on mobile)."
+)
