@@ -7,6 +7,10 @@ FILES:
 
 WHAT'S NEW
 ----------
+  - SWIPE CONTROLS: on phones/tablets, swipe left or right directly on
+    your track to change lanes, and swipe up or down to speed up or
+    slow down. No keyboard needed — great for players joining via the
+    QR code below.
   - QR CODE: a sidebar panel ("📱 Play on your phone") where you paste
     your app's live URL and instantly get a scannable QR code, plus a
     download button to save it as an image. This is generated entirely
@@ -72,7 +76,10 @@ HOW TO PLAY
 2. Set "Score to win" (default 300).
 3. Click "Start Race" — this also unlocks sound (browsers require a
    click before audio is allowed to play).
-4. Player 1 uses A/D/W/S, Player 2 uses the arrow keys.
+4. Player 1 uses A/D/W/S, Player 2 uses the arrow keys. On a touch
+   screen (phone/tablet), swipe left or right on YOUR track to change
+   lanes, and swipe up or down to speed up / slow down — no keyboard
+   needed.
 5. The race ends the moment either player's score hits the target, or
    the moment both players have crashed — whichever comes first.
 6. Space bar pauses both games. Enter restarts once the race is over.
