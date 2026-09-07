@@ -1,62 +1,44 @@
 CAR DODGE GAME - INSTRUCTIONS
 ================================
-(Desktop 2-Player + Mobile Portrait + Cross-Device Multiplayer +
- Win Score + Leaderboard + Sound + QR Code)
+(Desktop 2-Player + Mobile Portrait Solo + Win Score + Leaderboard +
+ Sound + QR Code)
 
 FILES:
   - car_game.py       (Streamlit app that embeds the game)
   - requirements.txt  (tells Streamlit Cloud what to install — just "streamlit")
 
-WHAT'S NEW
-----------
-  - TWO LAYOUTS, auto-detected by screen width:
-      * DESKTOP / wide screens: the original same-keyboard 2-player
-        split screen (Player 1: A/D/W/S, Player 2: arrow keys).
-      * MOBILE / phones (narrow screens): a single, full-width
-        PORTRAIT canvas — one player per phone.
-  - CROSS-DEVICE MULTIPLAYER (mobile only): to play against someone
-    else on mobile, BOTH players open the app on their own phone. One
-    taps "Create Room" (gets a short room code), the other taps "Join"
-    and types that code. The two phones then connect directly to each
-    other and race in real time, each swiping on their own screen.
-  - "Play Solo" button on mobile for practicing without an opponent.
-  - Everything from before still works: win score, synthesized sounds,
-    per-device leaderboard, sidebar QR code, swipe controls.
+LAYOUTS
+-------
+  - DESKTOP / wide screens: same-keyboard 2-player split screen
+    (Player 1: A/D/W/S, Player 2: arrow keys).
+  - MOBILE / phones (narrow screens): a single, full-width PORTRAIT
+    canvas, solo play. Swipe to steer and change speed.
+The app switches between these automatically based on screen width —
+no setting to change.
 
-HOW THE CROSS-DEVICE CONNECTION WORKS (AND ITS LIMITS)
-----------------------------------------------------------
-The two phones connect using PeerJS, a free, no-signup WebRTC helper
-library loaded from a CDN. A public "broker" service (run by the
-PeerJS project, not by you) helps the two phones find each other;
-after that, gameplay data travels directly between the two phones,
-peer-to-peer.
-
-What this means in practice:
-  - No backend server was added to this project — nothing to host or
-    pay for beyond Streamlit Cloud itself.
-  - Both phones need an internet connection.
-  - Very locked-down networks (some school/office/hotel Wi-Fi) can
-    occasionally block the peer-to-peer connection. If a room won't
-    connect, try switching one phone to mobile data, or a different
-    network.
-  - This is a best-effort casual-game setup, not an enterprise-grade
-    multiplayer backend — occasional connection hiccups are possible,
-    especially on flaky networks.
+NOTE ON CROSS-DEVICE MULTIPLAYER
+------------------------------------
+An earlier version let two separate phones connect to each other over
+a peer-to-peer connection to race head-to-head. That has been removed
+— mobile is now solo only, since the connection setup (room codes,
+network dependency, occasional connection failures) added complexity
+without being reliable enough. If you'd like a two-phone mode again in
+the future (either peer-to-peer or with a proper shared backend), just
+ask.
 
 WHY NO PYGAME
 --------------
 Streamlit Cloud runs on a headless server (no display), so pygame
 (which needs a real graphics window) can never work there. This game
 is built entirely with HTML5 Canvas + JavaScript and embedded into the
-Streamlit page, so everything — including the peer-to-peer connection —
-runs in each visitor's own browser.
+Streamlit page, so everything runs in the visitor's own browser.
 
 HOW TO RUN LOCALLY
 -------------------
 1. pip install streamlit
 2. streamlit run car_game.py
 3. Your browser opens at http://localhost:8501
-   (resize the browser window narrow, or open dev tools' device
+   (resize the browser window narrow, or use dev tools' device
    toolbar, to preview the mobile/portrait layout)
 
 HOW TO DEPLOY ON STREAMLIT CLOUD
@@ -94,36 +76,16 @@ HOW TO PLAY — DESKTOP
    (higher score wins in that case). Scores save to the leaderboard
    automatically.
 
-HOW TO PLAY — MOBILE (single phone, practice)
-------------------------------------------------
+HOW TO PLAY — MOBILE
+------------------------
 1. Enter your name.
-2. Set "Score to win" if you like.
-3. Tap "🙋 Play Solo".
+2. Set "Score to win" if you like (default 300).
+3. Tap "▶ Start Race" — this also unlocks sound.
 4. Swipe left/right on your car's track to steer, swipe up/down to
    speed up or slow down.
-
-HOW TO PLAY — MOBILE (two phones, head-to-head)
-----------------------------------------------------
-Player A (host):
-  1. Enter your name, set "Score to win".
-  2. Tap "🆕 Create Room" — a 5-character room code appears
-     (e.g. "K7X2Q").
-  3. Share that code with Player B out loud, by text, etc.
-  4. Once Player B joins, tap "▶ Start Race" (only the host starts
-     the match).
-
-Player B (joiner):
-  1. Enter your name.
-  2. Type the room code Player A gave you into "Room code".
-  3. Tap "🔗 Join".
-  4. Wait for Player A to tap Start — your race begins automatically
-     when they do.
-
-Both phones then swipe to play, each seeing their own track plus a
-small "Opponent" bar showing the other player's live score. The race
-ends the moment either player reaches the target score, or when both
-have crashed (higher score wins). Both players' scores are saved to
-their OWN device's leaderboard.
+5. The run ends when you hit the target score (a win) or crash. Your
+   score is saved to the leaderboard automatically. Tap Start Race
+   again to try again.
 
 ABOUT THE LEADERBOARD (IMPORTANT)
 -----------------------------------
@@ -131,7 +93,7 @@ The leaderboard is stored per-device in the browser's "localStorage".
 It will:
   - persist across reloads and future visits on the SAME device
   - NOT be shared between different players' devices
-  - NOT sync across devices, even mid-multiplayer-race
+  - NOT sync across devices
 
 If you want one real SHARED leaderboard everyone sees, that needs a
 small backend to store scores centrally — e.g. a Google Sheet via
@@ -144,16 +106,8 @@ TROUBLESHOOTING
   screen width (700px breakpoint). Try resizing the browser window or
   actually opening it on a phone.
 
-- "Couldn't find that room"? Double-check the room code (it's
-  case-insensitive but must match exactly), make sure the host has
-  tapped Create Room first, and that both phones have working
-  internet.
-
-- Connected but nothing happens? Make sure the HOST taps "Start Race"
-  — the guest's race begins automatically once the host starts.
-
-- No sound? Tap/click Start (or Create/Join/Solo) first — browsers
-  block audio until a user gesture. Check the sound toggle too.
+- No sound? Tap/click "Start Race" first — browsers block audio until
+  a user gesture. Check the sound toggle too.
 
 - QR code not showing? Make sure you typed a full URL starting with
   http:// or https:// in the sidebar box.
@@ -168,4 +122,3 @@ Open car_game.py:
   - Canvas size: width="340" height="600" on the <canvas> tags.
   - Colors: COLORS / OBSTACLE_COLORS near the top of <script>.
   - Difficulty: PlayerGame.reset() — baseSpeed and spawnInterval.
-  - Room code length/characters: randomRoomCode() function.
