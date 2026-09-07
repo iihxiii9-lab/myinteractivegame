@@ -1,5 +1,5 @@
-CAR DODGE GAME - INSTRUCTIONS (2 Player + Leaderboard + Sound)
-================================================================
+CAR DODGE GAME - INSTRUCTIONS (2 Player + Win Score + Leaderboard + Sound)
+============================================================================
 
 FILES:
   - car_game.py       (Streamlit app that embeds the game)
@@ -7,14 +7,22 @@ FILES:
 
 WHAT'S NEW
 ----------
+  - WIN SCORE: set a target score before starting. First player to
+    reach it wins instantly and the race ends for both players. If
+    both players crash before anyone reaches the target, the race
+    also ends and whoever had the higher score is recorded as the
+    winner on the leaderboard.
   - 2-PLAYER split screen, same keyboard:
         Player 1: A/D to steer, W/S for gas/brake
         Player 2: Left/Right arrows to steer, Up/Down arrows for gas/brake
   - CAR SOUNDS: synthesized in the browser with the Web Audio API
-    (no audio files needed) — a low engine hum that rises in pitch
-    as you speed up, plus a crash noise when you hit traffic.
+    (no audio files needed) — an engine hum, a crash noise, and a
+    short victory fanfare when someone wins.
   - LEADERBOARD: top 10 scores, shown under the game, saved
-    automatically once both players have crashed.
+    automatically once the race ends.
+  - Name fields accept any letters, including the letters used as
+    game controls (w/a/s/d and arrow keys) — typing is no longer
+    blocked by the game's keyboard listener.
 
 WHY NO PYGAME
 --------------
@@ -40,16 +48,23 @@ HOW TO DEPLOY ON STREAMLIT CLOUD
 HOW TO PLAY
 ------------
 1. (Optional) Type each player's name in the two name boxes.
-2. Click "Start Race" — this also unlocks sound (browsers require a
+2. Set "Score to win" (default 300) — lower it for a quick match,
+   raise it for a longer race.
+3. Click "Start Race" — this also unlocks sound (browsers require a
    click before audio is allowed to play).
-3. Player 1 uses A/D/W/S, Player 2 uses the arrow keys. Both race at
-   the same time on their own track.
-4. Space bar pauses both games. Enter restarts once BOTH players have
-   crashed.
-5. When both players have crashed, their scores are automatically
-   added to the leaderboard below the game.
-6. Click "Clear" next to the leaderboard heading to wipe it.
-7. Use the sound button to mute/unmute the engine and crash sounds.
+4. Player 1 uses A/D/W/S, Player 2 uses the arrow keys. Both race at
+   the same time on their own track. Each HUD shows "Score: X / target".
+5. The race ends the moment either player's score hits the target —
+   that player is declared the winner immediately, even if the other
+   player is still driving safely.
+6. If both players crash before reaching the target, the race also
+   ends; the one with the higher score at that point is the winner.
+7. Space bar pauses both games. Enter restarts once the race is over
+   (win or double-crash).
+8. Both players' final scores are automatically added to the
+   leaderboard once the race ends.
+9. Click "Clear" next to the leaderboard heading to wipe it.
+10. Use the sound button to mute/unmute engine, crash, and win sounds.
 
 ABOUT THE LEADERBOARD (IMPORTANT)
 -----------------------------------
@@ -61,9 +76,8 @@ it lives on that specific browser/device only. It will:
 
 This is intentional to keep the game 100% self-contained with zero
 extra setup (no database, no API keys). If you want a real SHARED
-leaderboard that all visitors see (e.g. a global high-score table),
-that needs a small backend to store scores centrally. Options, roughly
-in order of simplicity:
+leaderboard that all visitors see, that needs a small backend to store
+scores centrally. Options, roughly in order of simplicity:
   1. A Google Sheet + the `gspread` Python library, read/written from
      Streamlit on each score submission.
   2. A tiny hosted database like Supabase, Firebase, or a Streamlit
@@ -80,13 +94,17 @@ TROUBLESHOOTING
   page) — browsers block audio until a user click. Also check the
   sound toggle isn't set to muted, and your OS/browser volume isn't 0.
 
-- Keyboard doesn't respond? Click anywhere on the page first so it has
-  focus, then try again.
+- Keyboard doesn't respond in the game? Click anywhere on the game
+  canvas area (not inside a text box) first so it has focus.
 
-- Want bigger/smaller canvases, different colors, or a 1-player mode?
-  Open car_game.py and look in the GAME_HTML string — canvas sizes are
-  set as width="340" height="600" on the <canvas> tags, and colors
-  are near the top of the <script> section (COLORS, OBSTACLE_COLORS).
+- Can't type certain letters in the name boxes? This is fixed — game
+  controls are now ignored while a text field is focused.
+
+- Want a different default win score, bigger/smaller canvases, or
+  different colors? Open car_game.py and look in the GAME_HTML string:
+    - default win score: the `value="300"` on the winScoreInput field
+    - canvas size: width="340" height="600" on the <canvas> tags
+    - colors: COLORS / OBSTACLE_COLORS near the top of <script>
 
 CUSTOMIZING DIFFICULTY
 ------------------------
