@@ -1,53 +1,96 @@
-CAR DODGE GAME - INSTRUCTIONS
-==============================
+CAR DODGE GAME - INSTRUCTIONS (2 Player + Leaderboard + Sound)
+================================================================
 
-FILE: car_game.py
+FILES:
+  - car_game.py       (Streamlit app that embeds the game)
+  - requirements.txt  (tells Streamlit Cloud what to install)
 
-WHAT IT IS
+WHAT'S NEW
 ----------
-A simple arcade-style car dodging game built with Python and Pygame.
-You control a car on a 3-lane road and must dodge oncoming traffic.
-The longer you survive, the higher your score, and the game gets
-progressively harder as traffic spawns faster.
+  - 2-PLAYER split screen, same keyboard:
+        Player 1: A/D to steer, W/S for gas/brake
+        Player 2: Left/Right arrows to steer, Up/Down arrows for gas/brake
+  - CAR SOUNDS: synthesized in the browser with the Web Audio API
+    (no audio files needed) — a low engine hum that rises in pitch
+    as you speed up, plus a crash noise when you hit traffic.
+  - LEADERBOARD: top 10 scores, shown under the game, saved
+    automatically once both players have crashed.
 
-SETUP
------
-1. Make sure Python 3 is installed on your computer.
-2. Install Pygame (only needed once):
+WHY NO PYGAME
+--------------
+Streamlit Cloud runs on a headless server (no display), so pygame
+(which needs a real graphics window) can never work there. This game
+is built entirely with HTML5 Canvas + JavaScript and embedded into the
+Streamlit page, so everything runs in the visitor's own browser.
+requirements.txt only needs "streamlit" — nothing else.
 
-       pip install pygame
+HOW TO RUN LOCALLY
+-------------------
+1. pip install streamlit
+2. streamlit run car_game.py
+3. Your browser opens at http://localhost:8501
 
-3. Run the game:
+HOW TO DEPLOY ON STREAMLIT CLOUD
+----------------------------------
+1. Push car_game.py and requirements.txt to your repo (replace the old
+   car_game.py). No other files are needed.
+2. Streamlit Cloud will auto-redeploy.
+3. Open your app URL.
 
-       python car_game.py
+HOW TO PLAY
+------------
+1. (Optional) Type each player's name in the two name boxes.
+2. Click "Start Race" — this also unlocks sound (browsers require a
+   click before audio is allowed to play).
+3. Player 1 uses A/D/W/S, Player 2 uses the arrow keys. Both race at
+   the same time on their own track.
+4. Space bar pauses both games. Enter restarts once BOTH players have
+   crashed.
+5. When both players have crashed, their scores are automatically
+   added to the leaderboard below the game.
+6. Click "Clear" next to the leaderboard heading to wipe it.
+7. Use the sound button to mute/unmute the engine and crash sounds.
 
-CONTROLS
---------
-  LEFT  / A   -> move car left
-  RIGHT / D   -> move car right
-  UP    / W   -> increase speed (harder, but scores faster)
-  DOWN  / S   -> decrease speed (easier)
-  P           -> pause / unpause
-  R           -> restart after game over
-  ESC         -> quit the game
+ABOUT THE LEADERBOARD (IMPORTANT)
+-----------------------------------
+The leaderboard is stored in the browser's "localStorage" — meaning
+it lives on that specific browser/device only. It will:
+  - persist across page reloads and future visits on the SAME browser
+  - NOT be shared between different visitors to your deployed app
+  - NOT sync across devices
 
-GOAL
-----
-Avoid colliding with the oncoming cars for as long as possible.
-Your score climbs automatically the longer you survive and the
-faster you're going. Traffic spawns more frequently over time,
-so the game naturally ramps up in difficulty.
+This is intentional to keep the game 100% self-contained with zero
+extra setup (no database, no API keys). If you want a real SHARED
+leaderboard that all visitors see (e.g. a global high-score table),
+that needs a small backend to store scores centrally. Options, roughly
+in order of simplicity:
+  1. A Google Sheet + the `gspread` Python library, read/written from
+     Streamlit on each score submission.
+  2. A tiny hosted database like Supabase, Firebase, or a Streamlit
+     "Snowflake"/"SQLite on cloud storage" connection.
+  3. A simple external API (e.g. a small Flask/FastAPI service you
+     host) that the JavaScript posts scores to with fetch().
+Ask me if you'd like help wiring up any of these — it's a moderate
+change since it requires the JavaScript game to talk to a Python
+backend endpoint instead of localStorage.
 
 TROUBLESHOOTING
-----------------
-- "ModuleNotFoundError: No module named 'pygame'"
-      -> Run: pip install pygame
+-----------------
+- No sound? Make sure you clicked "Start Race" (not just loaded the
+  page) — browsers block audio until a user click. Also check the
+  sound toggle isn't set to muted, and your OS/browser volume isn't 0.
 
-- Game window doesn't open / closes immediately
-      -> Make sure you're running it from a terminal that supports
-         a graphical display (not a headless server or some online
-         code sandboxes, which can't open game windows).
+- Keyboard doesn't respond? Click anywhere on the page first so it has
+  focus, then try again.
 
-- Want to customize it?
-      -> Open car_game.py and tweak constants near the top of the
-         file: WIDTH, HEIGHT, FPS, or the Car/Obstacle speed values.
+- Want bigger/smaller canvases, different colors, or a 1-player mode?
+  Open car_game.py and look in the GAME_HTML string — canvas sizes are
+  set as width="340" height="600" on the <canvas> tags, and colors
+  are near the top of the <script> section (COLORS, OBSTACLE_COLORS).
+
+CUSTOMIZING DIFFICULTY
+------------------------
+Inside the JavaScript, look at the PlayerGame.reset() method:
+  - baseSpeed: starting speed
+  - spawnInterval: frames between new obstacles (lower = harder)
+  - spawnInterval decreases automatically over time in update()
