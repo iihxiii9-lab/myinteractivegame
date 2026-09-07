@@ -21,11 +21,44 @@ Run locally:
 
 import streamlit as st
 import streamlit.components.v1 as components
+import qrcode
+from io import BytesIO
 
 st.set_page_config(page_title="Car Dodge Game - 2 Player", page_icon="🚗", layout="wide")
 
 st.title("🚗🚙 Car Dodge Game — 2 Player")
 st.caption("Race side by side, dodge traffic, and climb the leaderboard!")
+
+# ---------------------------------------------------------------------------
+# QR code: lets a player scan and open this game on their phone
+# ---------------------------------------------------------------------------
+with st.sidebar:
+    st.header("📱 Play on your phone")
+    st.write("Paste this app's live URL below to get a scannable QR code.")
+    app_url = st.text_input(
+        "App URL",
+        placeholder="https://your-app-name.streamlit.app",
+        help="Copy this from your browser's address bar once the app is deployed "
+             "(or use your local network address, e.g. http://192.168.1.23:8501, "
+             "to test on a phone on the same Wi-Fi).",
+    )
+    if app_url.strip():
+        qr = qrcode.QRCode(border=2, box_size=8)
+        qr.add_data(app_url.strip())
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        st.image(buf, caption="Scan with your phone's camera", use_container_width=True)
+        st.download_button(
+            "⬇️ Download QR code",
+            data=buf.getvalue(),
+            file_name="car_game_qr.png",
+            mime="image/png",
+        )
+    else:
+        st.caption("Enter a URL above to generate the QR code.")
 
 GAME_HTML = r"""
 <div id="wrap" style="font-family: sans-serif; color: #eee;">
