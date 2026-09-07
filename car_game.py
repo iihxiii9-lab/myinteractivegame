@@ -507,7 +507,14 @@ drawPlaceholder("canvas2", "Press Start Race to begin");
 // ---------------------------------------------------------------------
 // Input
 // ---------------------------------------------------------------------
+function isTypingInField(e) {
+  const tag = e.target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA";
+}
+
 window.addEventListener("keydown", (e) => {
+  if (isTypingInField(e)) return; // let the name boxes accept every key normally
+
   keysDown[e.key] = true;
   if (e.key === " ") { paused = !paused; e.preventDefault(); }
   if (e.key === "Enter" && p1 && p2 && p1.gameOver && p2.gameOver) {
@@ -521,7 +528,10 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
   }
 });
-window.addEventListener("keyup", (e) => { keysDown[e.key] = false; });
+window.addEventListener("keyup", (e) => {
+  if (isTypingInField(e)) return;
+  keysDown[e.key] = false;
+});
 
 document.getElementById("btnStart").addEventListener("click", startRace);
 document.getElementById("btnPause").addEventListener("click", () => {
