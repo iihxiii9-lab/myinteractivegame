@@ -1,5 +1,5 @@
-CAR DODGE GAME - INSTRUCTIONS (2 Player + Win Score + Leaderboard + Sound)
-============================================================================
+CAR DODGE GAME - INSTRUCTIONS (2 Player + Win Score + Leaderboard + Sound + QR Code)
+======================================================================================
 
 FILES:
   - car_game.py       (Streamlit app that embeds the game)
@@ -7,22 +7,21 @@ FILES:
 
 WHAT'S NEW
 ----------
+  - QR CODE: a sidebar panel ("📱 Play on your phone") where you paste
+    your app's live URL and instantly get a scannable QR code, plus a
+    download button to save it as an image (e.g. to print or share).
   - WIN SCORE: set a target score before starting. First player to
     reach it wins instantly and the race ends for both players. If
-    both players crash before anyone reaches the target, the race
-    also ends and whoever had the higher score is recorded as the
-    winner on the leaderboard.
+    both players crash before anyone reaches the target, whoever had
+    the higher score is recorded as the winner.
   - 2-PLAYER split screen, same keyboard:
         Player 1: A/D to steer, W/S for gas/brake
         Player 2: Left/Right arrows to steer, Up/Down arrows for gas/brake
   - CAR SOUNDS: synthesized in the browser with the Web Audio API
-    (no audio files needed) — an engine hum, a crash noise, and a
-    short victory fanfare when someone wins.
-  - LEADERBOARD: top 10 scores, shown under the game, saved
-    automatically once the race ends.
-  - Name fields accept any letters, including the letters used as
-    game controls (w/a/s/d and arrow keys) — typing is no longer
-    blocked by the game's keyboard listener.
+    (no audio files needed) — engine hum, crash noise, victory fanfare.
+  - LEADERBOARD: top 10 scores, saved automatically once the race ends.
+  - Name fields accept any letters, including w/a/s/d and arrow keys —
+    typing is no longer blocked by the game's keyboard listener.
 
 WHY NO PYGAME
 --------------
@@ -30,41 +29,54 @@ Streamlit Cloud runs on a headless server (no display), so pygame
 (which needs a real graphics window) can never work there. This game
 is built entirely with HTML5 Canvas + JavaScript and embedded into the
 Streamlit page, so everything runs in the visitor's own browser.
-requirements.txt only needs "streamlit" — nothing else.
 
 HOW TO RUN LOCALLY
 -------------------
-1. pip install streamlit
+1. pip install -r requirements.txt
 2. streamlit run car_game.py
 3. Your browser opens at http://localhost:8501
 
 HOW TO DEPLOY ON STREAMLIT CLOUD
 ----------------------------------
 1. Push car_game.py and requirements.txt to your repo (replace the old
-   car_game.py). No other files are needed.
+   files). No other files are needed.
 2. Streamlit Cloud will auto-redeploy.
-3. Open your app URL.
+3. Open your app URL — it'll look like
+   https://your-app-name.streamlit.app
+
+HOW TO GET THE QR CODE
+------------------------
+1. Deploy your app (or run it locally on a phone-reachable address —
+   see below) and copy its URL.
+2. Open the app, look at the left sidebar, "📱 Play on your phone".
+3. Paste the URL into the "App URL" box.
+4. A QR code appears immediately — anyone can scan it with their
+   phone's camera app to open the game.
+5. Click "⬇️ Download QR code" to save it as a PNG you can share,
+   print, or post anywhere.
+
+Testing on a phone on the SAME WI-FI without deploying:
+  1. Run: streamlit run car_game.py
+  2. Find your computer's local IP address (e.g. on Mac/Linux:
+     `ifconfig` or `ipconfig getifaddr en0`; on Windows: `ipconfig`).
+  3. In the sidebar QR box, enter something like:
+         http://192.168.1.23:8501
+     (replace with your actual local IP)
+  4. Scan the QR code with a phone connected to the same Wi-Fi network.
 
 HOW TO PLAY
 ------------
 1. (Optional) Type each player's name in the two name boxes.
-2. Set "Score to win" (default 300) — lower it for a quick match,
-   raise it for a longer race.
+2. Set "Score to win" (default 300).
 3. Click "Start Race" — this also unlocks sound (browsers require a
    click before audio is allowed to play).
-4. Player 1 uses A/D/W/S, Player 2 uses the arrow keys. Both race at
-   the same time on their own track. Each HUD shows "Score: X / target".
-5. The race ends the moment either player's score hits the target —
-   that player is declared the winner immediately, even if the other
-   player is still driving safely.
-6. If both players crash before reaching the target, the race also
-   ends; the one with the higher score at that point is the winner.
-7. Space bar pauses both games. Enter restarts once the race is over
-   (win or double-crash).
-8. Both players' final scores are automatically added to the
-   leaderboard once the race ends.
-9. Click "Clear" next to the leaderboard heading to wipe it.
-10. Use the sound button to mute/unmute engine, crash, and win sounds.
+4. Player 1 uses A/D/W/S, Player 2 uses the arrow keys.
+5. The race ends the moment either player's score hits the target, or
+   the moment both players have crashed — whichever comes first.
+6. Space bar pauses both games. Enter restarts once the race is over.
+7. Final scores are saved to the leaderboard automatically.
+8. Click "Clear" next to the leaderboard heading to wipe it.
+9. Use the sound button to mute/unmute engine, crash, and win sounds.
 
 ABOUT THE LEADERBOARD (IMPORTANT)
 -----------------------------------
@@ -74,41 +86,34 @@ it lives on that specific browser/device only. It will:
   - NOT be shared between different visitors to your deployed app
   - NOT sync across devices
 
-This is intentional to keep the game 100% self-contained with zero
-extra setup (no database, no API keys). If you want a real SHARED
-leaderboard that all visitors see, that needs a small backend to store
-scores centrally. Options, roughly in order of simplicity:
-  1. A Google Sheet + the `gspread` Python library, read/written from
-     Streamlit on each score submission.
-  2. A tiny hosted database like Supabase, Firebase, or a Streamlit
-     "Snowflake"/"SQLite on cloud storage" connection.
-  3. A simple external API (e.g. a small Flask/FastAPI service you
-     host) that the JavaScript posts scores to with fetch().
-Ask me if you'd like help wiring up any of these — it's a moderate
-change since it requires the JavaScript game to talk to a Python
-backend endpoint instead of localStorage.
+If you want a real SHARED leaderboard all visitors see, that needs a
+small backend to store scores centrally (e.g. a Google Sheet via
+`gspread`, a hosted database like Supabase/Firebase, or a small custom
+API). Ask me if you'd like help wiring one up.
 
 TROUBLESHOOTING
 -----------------
-- No sound? Make sure you clicked "Start Race" (not just loaded the
-  page) — browsers block audio until a user click. Also check the
-  sound toggle isn't set to muted, and your OS/browser volume isn't 0.
+- No sound? Make sure you clicked "Start Race" first — browsers block
+  audio until a user click. Check the sound toggle and system volume.
 
-- Keyboard doesn't respond in the game? Click anywhere on the game
-  canvas area (not inside a text box) first so it has focus.
+- Keyboard doesn't respond in the game? Click on the game canvas area
+  (not inside a text box) first so it has focus.
 
-- Can't type certain letters in the name boxes? This is fixed — game
-  controls are now ignored while a text field is focused.
+- QR code not showing? Make sure you typed/pasted a full URL starting
+  with http:// or https:// into the sidebar box.
 
-- Want a different default win score, bigger/smaller canvases, or
-  different colors? Open car_game.py and look in the GAME_HTML string:
-    - default win score: the `value="300"` on the winScoreInput field
-    - canvas size: width="340" height="600" on the <canvas> tags
-    - colors: COLORS / OBSTACLE_COLORS near the top of <script>
+- Phone can't reach a locally-run app? Your phone and computer must be
+  on the same Wi-Fi network, and your computer's firewall must allow
+  incoming connections on port 8501.
 
-CUSTOMIZING DIFFICULTY
-------------------------
-Inside the JavaScript, look at the PlayerGame.reset() method:
-  - baseSpeed: starting speed
-  - spawnInterval: frames between new obstacles (lower = harder)
-  - spawnInterval decreases automatically over time in update()
+CUSTOMIZING
+-------------
+Open car_game.py:
+  - Default win score: `value="300"` on the winScoreInput field inside
+    GAME_HTML.
+  - Canvas size: width="340" height="600" on the <canvas> tags.
+  - Colors: COLORS / OBSTACLE_COLORS near the top of the <script>
+    section.
+  - Difficulty: PlayerGame.reset() — baseSpeed (starting speed) and
+    spawnInterval (frames between obstacles; it also decreases
+    automatically over time in update()).
