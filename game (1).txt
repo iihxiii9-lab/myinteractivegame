@@ -1,0 +1,53 @@
+CAR DODGE GAME - INSTRUCTIONS
+==============================
+
+FILE: car_game.py
+
+WHAT IT IS
+----------
+A simple arcade-style car dodging game built with Python and Pygame.
+You control a car on a 3-lane road and must dodge oncoming traffic.
+The longer you survive, the higher your score, and the game gets
+progressively harder as traffic spawns faster.
+
+SETUP
+-----
+1. Make sure Python 3 is installed on your computer.
+2. Install Pygame (only needed once):
+
+       pip install pygame
+
+3. Run the game:
+
+       python car_game.py
+
+CONTROLS
+--------
+  LEFT  / A   -> move car left
+  RIGHT / D   -> move car right
+  UP    / W   -> increase speed (harder, but scores faster)
+  DOWN  / S   -> decrease speed (easier)
+  P           -> pause / unpause
+  R           -> restart after game over
+  ESC         -> quit the game
+
+GOAL
+----
+Avoid colliding with the oncoming cars for as long as possible.
+Your score climbs automatically the longer you survive and the
+faster you're going. Traffic spawns more frequently over time,
+so the game naturally ramps up in difficulty.
+
+TROUBLESHOOTING
+----------------
+- "ModuleNotFoundError: No module named 'pygame'"
+      -> Run: pip install pygame
+
+- Game window doesn't open / closes immediately
+      -> Make sure you're running it from a terminal that supports
+         a graphical display (not a headless server or some online
+         code sandboxes, which can't open game windows).
+
+- Want to customize it?
+      -> Open car_game.py and tweak constants near the top of the
+         file: WIDTH, HEIGHT, FPS, or the Car/Obstacle speed values.
