@@ -21,8 +21,7 @@ Run locally:
 
 import streamlit as st
 import streamlit.components.v1 as components
-import qrcode
-from io import BytesIO
+import html as html_lib
 
 st.set_page_config(page_title="Car Dodge Game - 2 Player", page_icon="🚗", layout="wide")
 
@@ -43,20 +42,38 @@ with st.sidebar:
              "to test on a phone on the same Wi-Fi).",
     )
     if app_url.strip():
-        qr = qrcode.QRCode(border=2, box_size=8)
-        qr.add_data(app_url.strip())
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        st.image(buf, caption="Scan with your phone's camera", use_container_width=True)
-        st.download_button(
-            "⬇️ Download QR code",
-            data=buf.getvalue(),
-            file_name="car_game_qr.png",
-            mime="image/png",
-        )
+        safe_url = html_lib.escape(app_url.strip())
+        qr_html = f"""
+        <div style="text-align:center; font-family:sans-serif;">
+          <div id="qr" style="display:inline-block; padding:10px; background:white; border-radius:8px;"></div>
+          <br>
+          <button id="dl" style="margin-top:10px; padding:6px 14px; border-radius:6px; border:none;
+                   background:#3c82dc; color:white; cursor:pointer; font-size:13px;">
+            ⬇️ Download QR code
+          </button>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        <script>
+          const qrDiv = document.getElementById("qr");
+          new QRCode(qrDiv, {{
+            text: "{safe_url}",
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff"
+          }});
+          document.getElementById("dl").addEventListener("click", () => {{
+            const canvas = qrDiv.querySelector("canvas");
+            if (!canvas) return;
+            const link = document.createElement("a");
+            link.download = "car_game_qr.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+          }});
+        </script>
+        """
+        components.html(qr_html, height=300)
+        st.caption("Scan with your phone's camera app to open the game.")
     else:
         st.caption("Enter a URL above to generate the QR code.")
 
