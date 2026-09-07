@@ -1,6 +1,6 @@
 """
-Car Dodge Game - Desktop 2P + Mobile Portrait Cross-Device Multiplayer
-=========================================================================
+Car Dodge Game - Desktop 2P + Mobile Portrait Solo
+=====================================================
 Runs entirely in the browser via HTML5 Canvas + JavaScript, embedded into a
 Streamlit page with components.html. No pygame, so it works on Streamlit
 Community Cloud's headless servers.
@@ -10,20 +10,9 @@ Layouts:
     screen (Player 1: A/D/W/S, Player 2: arrow keys), landscape-style
     side-by-side canvases.
   - MOBILE / narrow screens (phones): a single, full-width PORTRAIT
-    canvas. One player per phone. To play against someone else, a
-    second player opens the same app on their own phone and joins your
-    "room" using a short room code — the two phones connect directly
-    to each other over WebRTC (peer-to-peer) using PeerJS's free public
-    broker, so no backend server needs to be hosted for this project.
-    Swipe left/right to steer, swipe up/down to speed up/slow down.
-
-Notes on the cross-device multiplayer:
-  - Uses the free public PeerJS broker only to help two browsers find
-    each other; actual gameplay data travels directly device-to-device.
-  - Both phones need an internet connection. Very restrictive networks
-    (some corporate/school Wi-Fi) can block the peer-to-peer connection.
-  - Each phone keeps its own local leaderboard (browser localStorage),
-    same as before — this project has no shared server-side database.
+    canvas, solo play. Swipe left/right to steer, swipe up/down to
+    speed up/slow down. Each phone keeps its own local leaderboard
+    (browser localStorage).
 
 Run locally:
     pip install streamlit
@@ -90,9 +79,8 @@ with st.sidebar:
 
     st.divider()
     st.caption(
-        "On a phone, two players race by BOTH opening this app and using the "
-        "'Room code' box in the mobile view — one taps Create, the other taps "
-        "Join with that code."
+        "On a phone, the game opens in a single portrait view for one "
+        "player — swipe to steer and change speed."
     )
 
 GAME_HTML = r"""
@@ -150,8 +138,7 @@ GAME_HTML = r"""
   </div>
 
   <!-- =================================================================
-       MOBILE LAYOUT (narrow screens): single portrait canvas,
-       optional cross-device opponent over PeerJS
+       MOBILE LAYOUT (narrow screens): single portrait canvas, solo play
   ================================================================== -->
   <div id="mobileUI" style="display:none;">
     <div id="mobileSetup" style="max-width:380px; margin:0 auto 14px auto;">
@@ -160,45 +147,24 @@ GAME_HTML = r"""
              style="display:block; width:100%; box-sizing:border-box; margin-top:4px; margin-bottom:10px;
                     padding:8px 10px; border-radius:6px; border:1px solid #555; font-size:15px;">
 
-      <label style="color:#eee; font-weight:bold; font-size:14px;">Score to win (if you host)</label>
+      <label style="color:#eee; font-weight:bold; font-size:14px;">Score to win</label>
       <input id="mWinScore" type="number" min="10" step="10" value="300"
              style="display:block; width:100%; box-sizing:border-box; margin-top:4px; margin-bottom:10px;
                     padding:8px 10px; border-radius:6px; border:1px solid #555; font-size:15px;">
 
-      <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <button id="mBtnCreate" style="flex:1; padding:10px; font-size:14px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
-          🆕 Create Room
-        </button>
-        <button id="mBtnSolo" style="flex:1; padding:10px; font-size:14px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
-          🙋 Play Solo
-        </button>
-      </div>
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
-        <input id="mRoomCode" type="text" placeholder="Room code" maxlength="6"
-               style="flex:1; padding:10px; border-radius:8px; border:1px solid #555; font-size:15px; text-transform:uppercase;">
-        <button id="mBtnJoin" style="padding:10px 16px; font-size:14px; border-radius:8px; border:none; background:#3cc864; color:white; cursor:pointer;">
-          🔗 Join
-        </button>
-      </div>
-
-      <div id="mStatus" style="text-align:center; color:#ccc; font-size:13px; min-height:18px; margin-bottom:6px;"></div>
-
-      <div style="display:flex; gap:8px; justify-content:center;">
-        <button id="mBtnStart" style="display:none; padding:10px 20px; font-size:15px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
+      <div style="display:flex; gap:8px; justify-content:center; margin-bottom:6px;">
+        <button id="mBtnSolo" style="flex:1; padding:10px; font-size:15px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
           ▶ Start Race
         </button>
-        <button id="mBtnPause" style="padding:8px 16px; font-size:14px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
+        <button id="mBtnPause" style="padding:10px 16px; font-size:14px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
           ⏸ Pause
         </button>
-        <button id="mBtnMute" style="padding:8px 16px; font-size:14px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
+        <button id="mBtnMute" style="padding:10px 16px; font-size:14px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
           🔊
         </button>
       </div>
-    </div>
 
-    <div id="mOpponentBar" style="display:none; max-width:340px; margin:0 auto 8px auto; background:#2a2a2a; border-radius:8px;
-                padding:8px 12px; text-align:center; font-size:13px; color:#ffb347;">
-      <span id="mOppText">Opponent: —</span>
+      <div id="mStatus" style="text-align:center; color:#ccc; font-size:13px; min-height:18px;"></div>
     </div>
 
     <div style="text-align:center;">
@@ -234,7 +200,6 @@ GAME_HTML = r"""
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
 <script>
 // ---------------------------------------------------------------------
 // Shared constants / helpers
@@ -503,12 +468,13 @@ class PlayerGame {
 
     if (resultOverlay) {
       const won = resultOverlay.won;
+      const title = resultOverlay.title || (won ? "🏆 YOU WIN! 🏆" : "You lose");
       ctx.fillStyle = won ? "rgba(30,90,30,0.75)" : "rgba(0,0,0,0.65)";
       ctx.fillRect(0, 0, this.width, this.height);
       ctx.fillStyle = COLORS.white;
       ctx.textAlign = "center";
       ctx.font = "bold 24px sans-serif";
-      ctx.fillText(won ? "🏆 YOU WIN! 🏆" : "You lose", this.width / 2, this.height / 2 - 20);
+      ctx.fillText(title, this.width / 2, this.height / 2 - 20);
       ctx.font = "bold 16px sans-serif";
       ctx.fillText(resultOverlay.line, this.width / 2, this.height / 2 + 6);
       ctx.font = "bold 18px sans-serif";
@@ -753,7 +719,7 @@ addSwipeControls(document.getElementById("canvas1"), () => p1, () => raceOver);
 addSwipeControls(document.getElementById("canvas2"), () => p2, () => raceOver);
 
 // =======================================================================
-// MOBILE CONTROLLER (1 phone = 1 player, optional remote opponent via PeerJS)
+// MOBILE CONTROLLER (1 phone = 1 player, solo play)
 // =======================================================================
 let pm = null;               // my PlayerGame instance
 let mRunning = false;
@@ -762,125 +728,18 @@ let mScoresRecorded = false;
 let mRaceOver = false;
 let mResult = null;          // { won: bool, line: string }
 let myName = "Player";
-let isHost = false;
-let peer = null;
-let conn = null;
-let opponentConnected = false;
-let opponent = { name: null, score: 0, baseSpeed: 0, gameOver: false, finished: false };
-let pendingOpponentName = null;
 
 function setStatus(text) { document.getElementById("mStatus").innerText = text; }
-
-function roomIdFor(code) { return "cardodge-room-" + code; }
-
-function randomRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
-  let code = "";
-  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
-function wireConnection(c) {
-  conn = c;
-  conn.on("open", () => {
-    opponentConnected = true;
-    document.getElementById("mOpponentBar").style.display = "block";
-    updateOpponentBar();
-    conn.send({ type: "hello", name: myName, winScore: isHost ? currentMWinScore() : undefined });
-    if (isHost) {
-      setStatus("✅ Opponent connected! Tap Start Race when ready.");
-      document.getElementById("mBtnStart").style.display = "inline-block";
-    } else {
-      setStatus("✅ Connected to host. Waiting for them to start...");
-    }
-  });
-  conn.on("data", (data) => handlePeerData(data));
-  conn.on("close", () => {
-    opponentConnected = false;
-    setStatus("⚠️ Opponent disconnected.");
-  });
-  conn.on("error", (err) => { setStatus("⚠️ Connection error."); });
-}
 
 function currentMWinScore() {
   const v = parseInt(document.getElementById("mWinScore").value, 10);
   return (!isNaN(v) && v > 0) ? v : 300;
 }
 
-function handlePeerData(data) {
-  if (!data || !data.type) return;
-  if (data.type === "hello") {
-    opponent.name = data.name || "Opponent";
-    if (!isHost && typeof data.winScore === "number") {
-      document.getElementById("mWinScore").value = data.winScore;
-    }
-    updateOpponentBar();
-  } else if (data.type === "start") {
-    beginMobileRace(data.winScore, false);
-  } else if (data.type === "state") {
-    opponent.score = data.score;
-    opponent.baseSpeed = data.baseSpeed;
-    opponent.gameOver = data.gameOver;
-    updateOpponentBar();
-  } else if (data.type === "over") {
-    finishMobileRace(data.winnerName === myName, data.winnerName, false);
-  } else if (data.type === "restart") {
-    beginMobileRace(data.winScore, false);
-  }
-}
-
-function updateOpponentBar() {
-  const el = document.getElementById("mOppText");
-  if (!opponent.name) { el.innerText = "Opponent: connected"; return; }
-  const state = opponent.gameOver ? "crashed" : "racing";
-  el.innerText = "Opponent: " + opponent.name + " — score " + Math.floor(opponent.score) + " (" + state + ")";
-}
-
-function createRoom() {
-  ensureAudio();
-  myName = document.getElementById("mName").value.trim() || "Player 1";
-  isHost = true;
-  const code = randomRoomCode();
-  document.getElementById("mRoomCode").value = code;
-  setStatus("Setting up room...");
-  peer = new Peer(roomIdFor(code));
-  peer.on("open", () => {
-    setStatus("🏠 Room code: " + code + " — share it with your friend. Waiting for them to join...");
-  });
-  peer.on("connection", (c) => wireConnection(c));
-  peer.on("error", (err) => {
-    setStatus("⚠️ Could not create room (try again, or Play Solo).");
-  });
-}
-
-function joinRoom() {
-  ensureAudio();
-  myName = document.getElementById("mName").value.trim() || "Player 2";
-  const code = document.getElementById("mRoomCode").value.trim().toUpperCase();
-  if (!code) { setStatus("Enter a room code first."); return; }
-  isHost = false;
-  setStatus("Connecting to room " + code + "...");
-  peer = new Peer();
-  peer.on("open", () => {
-    const c = peer.connect(roomIdFor(code));
-    wireConnection(c);
-  });
-  peer.on("error", (err) => {
-    setStatus("⚠️ Couldn't find that room. Check the code and try again.");
-  });
-}
-
 function playSolo() {
   ensureAudio();
   myName = document.getElementById("mName").value.trim() || "Player";
-  isHost = true;
-  opponentConnected = false;
-  document.getElementById("mOpponentBar").style.display = "none";
-  beginMobileRace(currentMWinScore(), true);
-}
-
-function beginMobileRace(winTarget, isLocalStart) {
-  const target = winTarget || currentMWinScore();
+  const target = currentMWinScore();
   pm = new PlayerGame("canvasM", myName, "#3cc864", { left: "ArrowLeft", right: "ArrowRight", up: "ArrowUp", down: "ArrowDown" }, target);
   document.getElementById("mLabel").innerText = myName;
   pm.engineSound.start();
@@ -889,48 +748,24 @@ function beginMobileRace(winTarget, isLocalStart) {
   mRaceOver = false;
   mResult = null;
   mScoresRecorded = false;
-  opponent.gameOver = false;
-  opponent.finished = false;
   anyRaceRunning = true;
-  document.getElementById("mBtnStart").style.display = "none";
-  setStatus(opponentConnected ? "🏁 Racing against " + (opponent.name || "opponent") + "!" : "🏁 Solo run — beat your target score!");
-
-  if (isLocalStart && isHost && conn && opponentConnected) {
-    conn.send({ type: "start", winScore: target });
-  }
+  setStatus("🏁 Go! Beat your target score of " + target + ".");
 }
 
-let mLastSentAt = 0;
 function mobileLoop() {
   if (isMobile && mRunning) {
     pm.update(null, mRunning, mPaused, mRaceOver);
 
-    // periodically broadcast my state to the opponent
-    const now = performance.now();
-    if (conn && opponentConnected && now - mLastSentAt > 150) {
-      mLastSentAt = now;
-      conn.send({ type: "state", score: pm.score, baseSpeed: pm.baseSpeed, gameOver: pm.gameOver });
-    }
-
     if (!mPaused && !mRaceOver) {
-      // win-by-score
       if (pm.score >= pm.winTarget) {
-        finishMobileRace(true, myName, true);
-      }
-      // both crashed (only meaningful with an opponent)
-      else if (pm.gameOver && opponentConnected && opponent.gameOver) {
-        const iWon = pm.score >= opponent.score;
-        finishMobileRace(iWon, iWon ? myName : opponent.name, true);
-      }
-      // solo crash with no opponent = just end the run
-      else if (pm.gameOver && !opponentConnected) {
-        finishMobileRace(false, null, true, true);
+        finishMobileRace(true, "Target reached!");
+      } else if (pm.gameOver) {
+        finishMobileRace(false, "Run complete!");
       }
     }
 
     if (mRaceOver && !mScoresRecorded) {
       addScore(myName, pm.score);
-      if (opponentConnected && opponent.name) addScore(opponent.name, opponent.score);
       mScoresRecorded = true;
       anyRaceRunning = false;
     }
@@ -940,26 +775,16 @@ function mobileLoop() {
   }
 }
 
-function finishMobileRace(iWon, winner, announce, soloEnd) {
+function finishMobileRace(won, line) {
   if (mRaceOver) return;
   mRaceOver = true;
   pm.engineSound.update(0, false);
-  if (soloEnd) {
-    // solo practice run ended by crashing alone - no win/lose framing
-    mResult = { won: false, line: "Run complete!" };
-  } else {
-    mResult = { won: iWon, line: (winner || "Someone") + " reached the target!" };
-    playWin();
-    if (announce && conn && opponentConnected) {
-      conn.send({ type: "over", winnerName: winner });
-    }
-  }
+  mResult = { won: won, line: line, title: won ? undefined : "CRASHED!" };
+  if (won) playWin(); else playCrash();
+  setStatus(won ? "🏆 You hit the target! Tap Start Race to go again." : "Tap Start Race to try again.");
 }
 
-document.getElementById("mBtnCreate").addEventListener("click", createRoom);
-document.getElementById("mBtnJoin").addEventListener("click", joinRoom);
 document.getElementById("mBtnSolo").addEventListener("click", playSolo);
-document.getElementById("mBtnStart").addEventListener("click", () => beginMobileRace(currentMWinScore(), true));
 document.getElementById("mBtnPause").addEventListener("click", () => { if (mRunning) mPaused = !mPaused; });
 document.getElementById("mBtnMute").addEventListener("click", (e) => {
   soundOn = !soundOn;
@@ -987,20 +812,14 @@ components.html(GAME_HTML, height=1450, scrolling=True)
 
 st.info(
     "💡 **Desktop:** set a win score and click Start Race — both players use "
-    "one keyboard. **Mobile:** enter your name, then either tap **Create Room** "
-    "and share the code with a friend on another phone, tap **Join** with a "
-    "code you were given, or tap **Play Solo** to practice alone. Swipe to "
-    "steer and change speed."
+    "one keyboard. **Mobile:** enter your name, set a target score, and tap "
+    "**Start Race** — swipe left/right to steer, swipe up/down to change speed."
 )
 
-with st.expander("About cross-device multiplayer & the leaderboard"):
+with st.expander("About the leaderboard"):
     st.write(
-        "Two phones connect **directly to each other** using a free, no-signup "
-        "WebRTC connection service (PeerJS) — no extra backend was added to "
-        "this project. Both phones need internet access, and very locked-down "
-        "networks (some school/office Wi-Fi) can occasionally block the "
-        "connection. The leaderboard is stored in each device's own browser "
-        "storage, so it isn't shared between devices — see `game.txt` for "
-        "notes on adding a real shared/global leaderboard with a small "
-        "database backend."
+        "The leaderboard is stored in each device's own browser storage, so "
+        "it isn't shared between devices — see `game.txt` for notes on "
+        "adding a real shared/global leaderboard with a small database "
+        "backend."
     )
