@@ -1,11 +1,18 @@
 """
-Car Dodge Game - Streamlit Cloud compatible version
-=====================================================
-This version does NOT use pygame (pygame needs a real display/window and
-cannot run on Streamlit Cloud's headless servers). Instead, the game is
-built with HTML5 Canvas + JavaScript and embedded directly into the
-Streamlit app using components.html. It runs entirely in the visitor's
-browser, so it works great on Streamlit Community Cloud.
+Car Dodge Game - 2 Player + Leaderboard + Sound (Streamlit Cloud compatible)
+=============================================================================
+Runs entirely in the browser via HTML5 Canvas + JavaScript, embedded into a
+Streamlit page with components.html. No pygame, so it works on Streamlit
+Community Cloud's headless servers.
+
+Features:
+  - 2-player local split-screen (same keyboard, two control sets)
+  - Synthesized car engine hum + crash sound via the Web Audio API
+    (no external audio files needed)
+  - Leaderboard stored in the browser's localStorage (per-browser/device).
+    NOTE: this is a *local* leaderboard, not shared across different users'
+    browsers. See game.txt for how a shared/global leaderboard could be
+    added later (would need a small backend/database).
 
 Run locally:
     pip install streamlit
@@ -15,103 +22,89 @@ Run locally:
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Car Dodge Game", page_icon="🚗", layout="centered")
+st.set_page_config(page_title="Car Dodge Game - 2 Player", page_icon="🚗", layout="wide")
 
-st.title("🚗 Car Dodge Game")
-st.caption("Dodge the oncoming traffic and survive as long as you can!")
+st.title("🚗🚙 Car Dodge Game — 2 Player")
+st.caption("Race side by side, dodge traffic, and climb the leaderboard!")
 
 GAME_HTML = r"""
-<div style="display:flex; justify-content:center;">
-  <canvas id="gameCanvas" width="480" height="700"
-          style="background:#3c3c3c; border:2px solid #fff; border-radius:8px; outline:none;"
-          tabindex="0"></canvas>
+<div id="wrap" style="font-family: sans-serif; color: #eee;">
+
+  <div id="setup" style="display:flex; gap:20px; justify-content:center; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
+    <div>
+      <label style="color:#7CFC9A; font-weight:bold;">Player 1 name (WASD)</label><br>
+      <input id="p1name" type="text" maxlength="16" placeholder="Player 1"
+             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:180px;">
+    </div>
+    <div>
+      <label style="color:#FFB347; font-weight:bold;">Player 2 name (Arrow keys)</label><br>
+      <input id="p2name" type="text" maxlength="16" placeholder="Player 2"
+             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:180px;">
+    </div>
+    <button id="btnStart" style="padding:9px 22px; font-size:16px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
+      ▶ Start Race
+    </button>
+    <button id="btnPause" style="padding:9px 22px; font-size:16px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
+      ⏸ Pause
+    </button>
+    <button id="btnMute" style="padding:9px 22px; font-size:16px; border-radius:8px; border:none; background:#555; color:white; cursor:pointer;">
+      🔊 Sound On
+    </button>
+  </div>
+
+  <div id="canvases" style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+    <div style="text-align:center;">
+      <div id="p1label" style="color:#7CFC9A; font-weight:bold; margin-bottom:4px;">Player 1</div>
+      <canvas id="canvas1" width="340" height="600"
+              style="background:#3c3c3c; border:3px solid #7CFC9A; border-radius:8px;"></canvas>
+    </div>
+    <div style="text-align:center;">
+      <div id="p2label" style="color:#FFB347; font-weight:bold; margin-bottom:4px;">Player 2</div>
+      <canvas id="canvas2" width="340" height="600"
+              style="background:#3c3c3c; border:3px solid #FFB347; border-radius:8px;"></canvas>
+    </div>
+  </div>
+
+  <p style="text-align:center; color:#aaa; font-size:13px; margin-top:10px;">
+    Player 1: A / D to steer, W / S for gas / brake &nbsp;&nbsp;|&nbsp;&nbsp;
+    Player 2: ◀ / ▶ to steer, ▲ / ▼ for gas / brake &nbsp;&nbsp;|&nbsp;&nbsp;
+    Space: pause &nbsp;&nbsp;|&nbsp;&nbsp; Enter: restart after race ends
+  </p>
+
+  <div id="leaderboardBox" style="max-width:520px; margin:20px auto 0 auto; background:#2a2a2a; border-radius:10px; padding:14px 18px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0; color:#fff;">🏆 Leaderboard (this browser)</h3>
+      <button id="btnClearBoard" style="padding:4px 10px; font-size:12px; border-radius:6px; border:none; background:#772222; color:white; cursor:pointer;">
+        Clear
+      </button>
+    </div>
+    <table id="lbTable" style="width:100%; margin-top:10px; border-collapse:collapse; color:#eee; font-size:14px;">
+      <thead>
+        <tr style="border-bottom:1px solid #555; text-align:left;">
+          <th style="padding:4px;">#</th>
+          <th style="padding:4px;">Name</th>
+          <th style="padding:4px;">Score</th>
+          <th style="padding:4px;">Date</th>
+        </tr>
+      </thead>
+      <tbody id="lbBody"></tbody>
+    </table>
+    <p id="lbEmpty" style="color:#888; font-size:13px; display:none;">No scores yet — finish a race to set one!</p>
+  </div>
 </div>
-<div style="display:flex; justify-content:center; gap:10px; margin-top:10px;">
-  <button id="btnLeft" style="padding:10px 20px; font-size:18px;">⬅️ Left</button>
-  <button id="btnPause" style="padding:10px 20px; font-size:18px;">⏸ Pause</button>
-  <button id="btnRestart" style="padding:10px 20px; font-size:18px;">🔄 Restart</button>
-  <button id="btnRight" style="padding:10px 20px; font-size:18px;">Right ➡️</button>
-</div>
-<p style="text-align:center; color:#ccc; font-family:sans-serif; font-size:14px;">
-  Controls: Arrow keys / A / D to move, P to pause, R to restart.<br>
-  On mobile, use the on-screen buttons.
-</p>
 
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
-const ROAD_WIDTH = 360;
-const ROAD_X = (WIDTH - ROAD_WIDTH) / 2;
-const LANE_COUNT = 3;
-const LANE_WIDTH = ROAD_WIDTH / LANE_COUNT;
-
+// ---------------------------------------------------------------------
+// Shared constants / helpers
+// ---------------------------------------------------------------------
 const COLORS = {
-  white: "#f5f5f5",
-  black: "#141414",
-  gray: "#3c3c3c",
-  lightGray: "#6e6e6e",
-  yellow: "#f0c828",
-  blue: "#3c82dc"
+  white: "#f5f5f5", black: "#141414", gray: "#3c3c3c",
+  lightGray: "#6e6e6e", yellow: "#f0c828"
 };
-const OBSTACLE_COLORS = ["#dc3c3c", "#3cc864", "#f0c828", "#c864dc"];
+const OBSTACLE_COLORS = ["#dc3c3c", "#3cc864", "#f0c828", "#c864dc", "#3cb0dc"];
+const LB_KEY = "car_dodge_leaderboard_v1";
 
-class Car {
-  constructor() {
-    this.width = 46;
-    this.height = 80;
-    this.lane = Math.floor(LANE_COUNT / 2);
-    this.x = this.laneX(this.lane);
-    this.y = HEIGHT - this.height - 30;
-    this.speedX = 6;
-  }
-  laneX(lane) {
-    const center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH / 2;
-    return center - this.width / 2;
-  }
-  moveLeft() { this.x = Math.max(ROAD_X + 4, this.x - this.speedX); }
-  moveRight() { this.x = Math.min(ROAD_X + ROAD_WIDTH - this.width - 4, this.x + this.speedX); }
-  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
-  draw() {
-    const r = this.rect();
-    drawCarBody(r, COLORS.blue);
-  }
-}
-
-class Obstacle {
-  constructor(speed) {
-    this.width = 46;
-    this.height = 80;
-    const lane = Math.floor(Math.random() * LANE_COUNT);
-    const center = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH / 2;
-    this.x = center - this.width / 2;
-    this.y = -this.height;
-    this.speed = speed;
-    this.color = OBSTACLE_COLORS[Math.floor(Math.random() * OBSTACLE_COLORS.length)];
-  }
-  update() { this.y += this.speed; }
-  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
-  offScreen() { return this.y > HEIGHT; }
-  draw() { drawCarBody(this.rect(), this.color); }
-}
-
-function drawCarBody(r, color) {
-  ctx.fillStyle = color;
-  roundRect(r.x, r.y, r.w, r.h, 10);
-  ctx.fill();
-  ctx.fillStyle = COLORS.white;
-  roundRect(r.x + 6, r.y + 10, r.w - 12, 18, 4); ctx.fill();
-  roundRect(r.x + 6, r.y + r.h - 28, r.w - 12, 18, 4); ctx.fill();
-  ctx.fillStyle = COLORS.black;
-  ctx.fillRect(r.x - 4, r.y + 8, 6, 18);
-  ctx.fillRect(r.x + r.w - 2, r.y + 8, 6, 18);
-  ctx.fillRect(r.x - 4, r.y + r.h - 26, 6, 18);
-  ctx.fillRect(r.x + r.w - 2, r.y + r.h - 26, 6, 18);
-}
-
-function roundRect(x, y, w, h, r) {
+function roundRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -125,137 +118,441 @@ function rectsCollide(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
-let game;
+// ---------------------------------------------------------------------
+// Audio engine (synthesized - no files needed)
+// ---------------------------------------------------------------------
+let audioCtx = null;
+let soundOn = true;
 
-function newGame() {
-  return {
-    car: new Car(),
-    obstacles: [],
-    score: 0,
-    baseSpeed: 5,
-    spawnTimer: 0,
-    spawnInterval: 55,
-    gameOver: false,
-    paused: false,
-    roadScroll: 0,
-    keys: {}
-  };
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
 }
 
-function spawnObstacle() {
-  const speed = game.baseSpeed + Math.random() * 2;
-  game.obstacles.push(new Obstacle(speed));
+class EngineSound {
+  constructor() {
+    this.osc = null;
+    this.gain = null;
+    this.filter = null;
+  }
+  start() {
+    if (!audioCtx || this.osc) return;
+    this.osc = audioCtx.createOscillator();
+    this.osc.type = "sawtooth";
+    this.gain = audioCtx.createGain();
+    this.filter = audioCtx.createBiquadFilter();
+    this.filter.type = "lowpass";
+    this.filter.frequency.value = 400;
+    this.gain.gain.value = soundOn ? 0.05 : 0.0;
+    this.osc.frequency.value = 60;
+    this.osc.connect(this.filter);
+    this.filter.connect(this.gain);
+    this.gain.connect(audioCtx.destination);
+    this.osc.start();
+  }
+  update(speed, running) {
+    if (!this.osc) return;
+    const targetFreq = 45 + speed * 9;
+    this.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+    const targetGain = (running && soundOn) ? (0.035 + speed * 0.004) : 0.0;
+    this.gain.gain.setTargetAtTime(Math.min(targetGain, 0.09), audioCtx.currentTime, 0.08);
+  }
+  stop() {
+    if (!this.osc) return;
+    try { this.osc.stop(); } catch (e) {}
+    this.osc.disconnect();
+    this.osc = null;
+  }
 }
 
-function update() {
-  if (game.gameOver || game.paused) return;
+function playCrash() {
+  if (!audioCtx || !soundOn) return;
+  const bufferSize = audioCtx.sampleRate * 0.35;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 900;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.35;
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  noise.start();
 
-  if (game.keys["ArrowLeft"] || game.keys["a"]) game.car.moveLeft();
-  if (game.keys["ArrowRight"] || game.keys["d"]) game.car.moveRight();
-  if (game.keys["ArrowUp"] || game.keys["w"]) game.baseSpeed = Math.min(game.baseSpeed + 0.04, 14);
-  if (game.keys["ArrowDown"] || game.keys["s"]) game.baseSpeed = Math.max(game.baseSpeed - 0.04, 3);
+  const thud = audioCtx.createOscillator();
+  const thudGain = audioCtx.createGain();
+  thud.type = "square";
+  thud.frequency.value = 90;
+  thudGain.gain.value = 0.25;
+  thud.connect(thudGain);
+  thudGain.connect(audioCtx.destination);
+  thud.start();
+  thudGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+  thud.stop(audioCtx.currentTime + 0.32);
+}
 
-  game.spawnTimer++;
-  if (game.spawnTimer >= game.spawnInterval) {
-    game.spawnTimer = 0;
-    spawnObstacle();
-    game.spawnInterval = Math.max(20, game.spawnInterval - 0.5);
+function playHonk() {
+  if (!audioCtx || !soundOn) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = "square";
+  o.frequency.value = 320;
+  g.gain.value = 0.06;
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+  o.stop(audioCtx.currentTime + 0.16);
+}
+
+// ---------------------------------------------------------------------
+// Game entities
+// ---------------------------------------------------------------------
+class Car {
+  constructor(field, color) {
+    this.field = field;
+    this.width = 40;
+    this.height = 72;
+    this.lane = Math.floor(field.laneCount / 2);
+    this.x = this.laneX(this.lane);
+    this.y = field.height - this.height - 26;
+    this.speedX = 6;
+    this.color = color;
+  }
+  laneX(lane) {
+    const f = this.field;
+    const center = f.roadX + lane * f.laneWidth + f.laneWidth / 2;
+    return center - this.width / 2;
+  }
+  moveLeft() { this.x = Math.max(this.field.roadX + 4, this.x - this.speedX); }
+  moveRight() { this.x = Math.min(this.field.roadX + this.field.roadWidth - this.width - 4, this.x + this.speedX); }
+  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
+  draw(ctx) { drawCarBody(ctx, this.rect(), this.color); }
+}
+
+class Obstacle {
+  constructor(field, speed) {
+    this.field = field;
+    this.width = 40;
+    this.height = 72;
+    const lane = Math.floor(Math.random() * field.laneCount);
+    const center = field.roadX + lane * field.laneWidth + field.laneWidth / 2;
+    this.x = center - this.width / 2;
+    this.y = -this.height;
+    this.speed = speed;
+    this.color = OBSTACLE_COLORS[Math.floor(Math.random() * OBSTACLE_COLORS.length)];
+  }
+  update() { this.y += this.speed; }
+  rect() { return { x: this.x, y: this.y, w: this.width, h: this.height }; }
+  offScreen() { return this.y > this.field.height; }
+  draw(ctx) { drawCarBody(ctx, this.rect(), this.color); }
+}
+
+function drawCarBody(ctx, r, color) {
+  ctx.fillStyle = color;
+  roundRectPath(ctx, r.x, r.y, r.w, r.h, 9);
+  ctx.fill();
+  ctx.fillStyle = COLORS.white;
+  roundRectPath(ctx, r.x + 5, r.y + 9, r.w - 10, 16, 4); ctx.fill();
+  roundRectPath(ctx, r.x + 5, r.y + r.h - 25, r.w - 10, 16, 4); ctx.fill();
+  ctx.fillStyle = COLORS.black;
+  ctx.fillRect(r.x - 4, r.y + 7, 6, 16);
+  ctx.fillRect(r.x + r.w - 2, r.y + 7, 6, 16);
+  ctx.fillRect(r.x - 4, r.y + r.h - 23, 6, 16);
+  ctx.fillRect(r.x + r.w - 2, r.y + r.h - 23, 6, 16);
+}
+
+// ---------------------------------------------------------------------
+// Per-player game session
+// ---------------------------------------------------------------------
+class PlayerGame {
+  constructor(canvasId, playerName, colorMain, controls) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext("2d");
+    this.width = this.canvas.width;
+    this.height = this.canvas.height;
+    this.roadWidth = Math.floor(this.width * 0.78);
+    this.roadX = (this.width - this.roadWidth) / 2;
+    this.laneCount = 3;
+    this.laneWidth = this.roadWidth / this.laneCount;
+    this.colorMain = colorMain;
+    this.name = playerName;
+    this.controls = controls; // {left, right, up, down}
+    this.engineSound = new EngineSound();
+    this.reset();
   }
 
-  game.obstacles.forEach(o => o.update());
-  game.obstacles = game.obstacles.filter(o => !o.offScreen());
+  reset() {
+    this.car = new Car(this, this.colorMain);
+    this.obstacles = [];
+    this.score = 0;
+    this.baseSpeed = 5;
+    this.spawnTimer = 0;
+    this.spawnInterval = 55;
+    this.gameOver = false;
+    this.roadScroll = 0;
+    this.crashSoundPlayed = false;
+  }
 
-  const carRect = game.car.rect();
-  for (const o of game.obstacles) {
-    if (rectsCollide(carRect, o.rect())) {
-      game.gameOver = true;
+  update(keysDown, running, paused) {
+    if (!running || paused) return;
+    if (this.gameOver) return;
+
+    if (keysDown[this.controls.left]) this.car.moveLeft();
+    if (keysDown[this.controls.right]) this.car.moveRight();
+    if (keysDown[this.controls.up]) this.baseSpeed = Math.min(this.baseSpeed + 0.04, 14);
+    if (keysDown[this.controls.down]) this.baseSpeed = Math.max(this.baseSpeed - 0.04, 3);
+
+    this.spawnTimer++;
+    if (this.spawnTimer >= this.spawnInterval) {
+      this.spawnTimer = 0;
+      this.obstacles.push(new Obstacle(this, this.baseSpeed + Math.random() * 2));
+      this.spawnInterval = Math.max(20, this.spawnInterval - 0.5);
+    }
+
+    this.obstacles.forEach(o => o.update());
+    this.obstacles = this.obstacles.filter(o => !o.offScreen());
+
+    const carRect = this.car.rect();
+    for (const o of this.obstacles) {
+      if (rectsCollide(carRect, o.rect())) {
+        this.gameOver = true;
+      }
+    }
+
+    this.score += this.baseSpeed * 0.05;
+    this.roadScroll = (this.roadScroll + this.baseSpeed) % 40;
+
+    this.engineSound.update(this.baseSpeed, !this.gameOver);
+    if (this.gameOver && !this.crashSoundPlayed) {
+      playCrash();
+      this.crashSoundPlayed = true;
+      this.engineSound.update(0, false);
     }
   }
 
-  game.score += game.baseSpeed * 0.05;
-  game.roadScroll = (game.roadScroll + game.baseSpeed) % 40;
-}
+  drawRoad() {
+    const ctx = this.ctx;
+    ctx.fillStyle = COLORS.gray;
+    ctx.fillRect(0, 0, this.width, this.height);
+    ctx.fillStyle = COLORS.lightGray;
+    ctx.fillRect(this.roadX, 0, this.roadWidth, this.height);
 
-function drawRoad() {
-  ctx.fillStyle = COLORS.gray;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = COLORS.lightGray;
-  ctx.fillRect(ROAD_X, 0, ROAD_WIDTH, HEIGHT);
+    ctx.fillStyle = COLORS.yellow;
+    for (let lane = 1; lane < this.laneCount; lane++) {
+      const x = this.roadX + lane * this.laneWidth;
+      let y = -40 + this.roadScroll;
+      while (y < this.height) {
+        ctx.fillRect(x - 3, y, 6, 22);
+        y += 40;
+      }
+    }
+    ctx.fillStyle = COLORS.white;
+    ctx.fillRect(this.roadX - 5, 0, 5, this.height);
+    ctx.fillRect(this.roadX + this.roadWidth, 0, 5, this.height);
+  }
 
-  ctx.fillStyle = COLORS.yellow;
-  for (let lane = 1; lane < LANE_COUNT; lane++) {
-    const x = ROAD_X + lane * LANE_WIDTH;
-    let y = -40 + game.roadScroll;
-    while (y < HEIGHT) {
-      ctx.fillRect(x - 3, y, 6, 24);
-      y += 40;
+  drawHUD() {
+    const ctx = this.ctx;
+    ctx.fillStyle = COLORS.white;
+    ctx.font = "bold 15px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + Math.floor(this.score), 8, 20);
+    ctx.fillText("Speed: " + this.baseSpeed.toFixed(1), 8, 40);
+
+    if (this.gameOver) {
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(0, 0, this.width, this.height);
+      ctx.fillStyle = COLORS.white;
+      ctx.textAlign = "center";
+      ctx.font = "bold 26px sans-serif";
+      ctx.fillText("CRASHED!", this.width / 2, this.height / 2 - 20);
+      ctx.font = "bold 18px sans-serif";
+      ctx.fillText("Score: " + Math.floor(this.score), this.width / 2, this.height / 2 + 14);
     }
   }
-  ctx.fillStyle = COLORS.white;
-  ctx.fillRect(ROAD_X - 6, 0, 6, HEIGHT);
-  ctx.fillRect(ROAD_X + ROAD_WIDTH, 0, 6, HEIGHT);
+
+  draw() {
+    this.drawRoad();
+    this.car.draw(this.ctx);
+    this.obstacles.forEach(o => o.draw(this.ctx));
+    this.drawHUD();
+  }
 }
 
-function drawHUD() {
-  ctx.fillStyle = COLORS.white;
-  ctx.font = "bold 16px sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("Score: " + Math.floor(game.score), 10, 24);
-  ctx.fillText("Speed: " + game.baseSpeed.toFixed(1), 10, 46);
-
-  if (game.paused) centerMessage("PAUSED", "Press P or tap Pause to resume");
-  if (game.gameOver) centerMessage("GAME OVER", "Press R or tap Restart");
+// ---------------------------------------------------------------------
+// Leaderboard (localStorage - per browser)
+// ---------------------------------------------------------------------
+function loadLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LB_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
 }
 
-function centerMessage(title, subtitle) {
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = COLORS.white;
-  ctx.textAlign = "center";
-  ctx.font = "bold 42px sans-serif";
-  ctx.fillText(title, WIDTH / 2, HEIGHT / 2 - 10);
-  ctx.font = "bold 20px sans-serif";
-  ctx.fillText(subtitle, WIDTH / 2, HEIGHT / 2 + 30);
+function saveLeaderboard(list) {
+  try { localStorage.setItem(LB_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
-function draw() {
-  drawRoad();
-  game.car.draw();
-  game.obstacles.forEach(o => o.draw());
-  drawHUD();
+function addScore(name, score) {
+  const list = loadLeaderboard();
+  list.push({
+    name: name || "Player",
+    score: Math.floor(score),
+    date: new Date().toLocaleDateString()
+  });
+  list.sort((a, b) => b.score - a.score);
+  saveLeaderboard(list.slice(0, 10));
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const list = loadLeaderboard();
+  const body = document.getElementById("lbBody");
+  const empty = document.getElementById("lbEmpty");
+  body.innerHTML = "";
+  if (list.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  list.forEach((entry, i) => {
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #3a3a3a";
+    tr.innerHTML =
+      "<td style='padding:4px;'>" + (i + 1) + "</td>" +
+      "<td style='padding:4px;'>" + escapeHtml(entry.name) + "</td>" +
+      "<td style='padding:4px;'>" + entry.score + "</td>" +
+      "<td style='padding:4px; color:#999;'>" + entry.date + "</td>";
+    body.appendChild(tr);
+  });
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.innerText = s;
+  return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------
+// Main controller
+// ---------------------------------------------------------------------
+let p1, p2;
+let running = false;
+let paused = false;
+let keysDown = {};
+let scoresRecorded = false;
+
+function initPlayers() {
+  const p1Name = document.getElementById("p1name").value.trim() || "Player 1";
+  const p2Name = document.getElementById("p2name").value.trim() || "Player 2";
+  p1 = new PlayerGame("canvas1", p1Name, "#3cc864", { left: "a", right: "d", up: "w", down: "s" });
+  p2 = new PlayerGame("canvas2", p2Name, "#ffa93c", { left: "ArrowLeft", right: "ArrowRight", up: "ArrowUp", down: "ArrowDown" });
+  document.getElementById("p1label").innerText = p1Name;
+  document.getElementById("p2label").innerText = p2Name;
+  scoresRecorded = false;
+}
+
+function startRace() {
+  ensureAudio();
+  initPlayers();
+  p1.engineSound.start();
+  p2.engineSound.start();
+  running = true;
+  paused = false;
+}
+
+function maybeRecordScores() {
+  if (!p1 || !p2) return;
+  if (p1.gameOver && p2.gameOver && !scoresRecorded) {
+    addScore(p1.name, p1.score);
+    addScore(p2.name, p2.score);
+    scoresRecorded = true;
+  }
 }
 
 function loop() {
-  update();
-  draw();
+  if (running) {
+    p1.update(keysDown, running, paused);
+    p2.update(keysDown, running, paused);
+    maybeRecordScores();
+  }
+  if (p1) p1.draw();
+  if (p2) p2.draw();
   requestAnimationFrame(loop);
 }
 
-// input handling
+// draw placeholder state before first start
+function drawPlaceholder(canvasId, text) {
+  const c = document.getElementById(canvasId);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = COLORS.gray;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = "#aaa";
+  ctx.font = "bold 16px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(text, c.width / 2, c.height / 2);
+}
+drawPlaceholder("canvas1", "Press Start Race to begin");
+drawPlaceholder("canvas2", "Press Start Race to begin");
+
+// ---------------------------------------------------------------------
+// Input
+// ---------------------------------------------------------------------
 window.addEventListener("keydown", (e) => {
-  game.keys[e.key] = true;
-  if (e.key === "p" || e.key === "P") game.paused = !game.paused;
-  if ((e.key === "r" || e.key === "R") && game.gameOver) game = newGame();
-  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) e.preventDefault();
+  keysDown[e.key] = true;
+  if (e.key === " ") { paused = !paused; e.preventDefault(); }
+  if (e.key === "Enter" && p1 && p2 && p1.gameOver && p2.gameOver) {
+    initPlayers();
+    p1.engineSound.start();
+    p2.engineSound.start();
+    running = true;
+    paused = false;
+  }
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "w", "a", "s", "d"].includes(e.key)) {
+    e.preventDefault();
+  }
 });
-window.addEventListener("keyup", (e) => { game.keys[e.key] = false; });
+window.addEventListener("keyup", (e) => { keysDown[e.key] = false; });
 
-document.getElementById("btnLeft").addEventListener("click", () => game.car.moveLeft());
-document.getElementById("btnRight").addEventListener("click", () => game.car.moveRight());
-document.getElementById("btnPause").addEventListener("click", () => { if (!game.gameOver) game.paused = !game.paused; });
-document.getElementById("btnRestart").addEventListener("click", () => { game = newGame(); });
+document.getElementById("btnStart").addEventListener("click", startRace);
+document.getElementById("btnPause").addEventListener("click", () => {
+  if (running) paused = !paused;
+});
+document.getElementById("btnMute").addEventListener("click", (e) => {
+  soundOn = !soundOn;
+  e.target.innerText = soundOn ? "🔊 Sound On" : "🔇 Sound Off";
+});
+document.getElementById("btnClearBoard").addEventListener("click", () => {
+  saveLeaderboard([]);
+  renderLeaderboard();
+});
 
-canvas.addEventListener("click", () => canvas.focus());
-
-game = newGame();
-canvas.focus();
+renderLeaderboard();
 loop();
 </script>
 """
 
-components.html(GAME_HTML, height=850, scrolling=False)
+components.html(GAME_HTML, height=1150, scrolling=True)
 
 st.info(
-    "Tip: click on the game canvas first so it captures your keyboard input, "
-    "then use the arrow keys (or the on-screen buttons on mobile)."
+    "💡 Tip: click **Start Race** first (this also enables sound — browsers "
+    "require a click before audio can play). Scores for both players are "
+    "saved to the leaderboard automatically once both cars crash."
 )
+
+with st.expander("About the leaderboard"):
+    st.write(
+        "The leaderboard is stored in your browser's local storage, so it's "
+        "specific to this browser/device and won't be shared with other "
+        "visitors to your deployed app. See `game.txt` for notes on adding "
+        "a real shared/global leaderboard with a small database backend."
+    )
