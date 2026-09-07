@@ -9,7 +9,9 @@ WHAT'S NEW
 ----------
   - QR CODE: a sidebar panel ("📱 Play on your phone") where you paste
     your app's live URL and instantly get a scannable QR code, plus a
-    download button to save it as an image (e.g. to print or share).
+    download button to save it as an image. This is generated entirely
+    in the browser with JavaScript — no extra Python packages needed,
+    so it can't cause a "ModuleNotFoundError" on deploy.
   - WIN SCORE: set a target score before starting. First player to
     reach it wins instantly and the race ends for both players. If
     both players crash before anyone reaches the target, whoever had
@@ -32,7 +34,7 @@ Streamlit page, so everything runs in the visitor's own browser.
 
 HOW TO RUN LOCALLY
 -------------------
-1. pip install -r requirements.txt
+1. pip install streamlit
 2. streamlit run car_game.py
 3. Your browser opens at http://localhost:8501
 
