@@ -33,13 +33,13 @@ GAME_HTML = r"""
   <div id="setup" style="display:flex; gap:20px; justify-content:center; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
     <div>
       <label style="color:#7CFC9A; font-weight:bold;">Player 1 name (WASD)</label><br>
-      <input id="p1name" type="text" maxlength="16" placeholder="Player 1"
-             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:180px;">
+      <input id="p1name" type="text" placeholder="Player 1"
+             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:220px;">
     </div>
     <div>
       <label style="color:#FFB347; font-weight:bold;">Player 2 name (Arrow keys)</label><br>
-      <input id="p2name" type="text" maxlength="16" placeholder="Player 2"
-             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:180px;">
+      <input id="p2name" type="text" placeholder="Player 2"
+             style="padding:6px 10px; border-radius:6px; border:1px solid #555; width:220px;">
     </div>
     <button id="btnStart" style="padding:9px 22px; font-size:16px; font-weight:bold; border-radius:8px; border:none; background:#3c82dc; color:white; cursor:pointer;">
       ▶ Start Race
